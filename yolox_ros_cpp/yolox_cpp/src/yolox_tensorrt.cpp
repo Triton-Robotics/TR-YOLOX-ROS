@@ -105,7 +105,6 @@ namespace yolox_cpp
         // inference
         this->doInference(input_blob_.data(), output_blob_.data());
 
-        
         // postprocess
         const float scale = std::min(
             static_cast<float>(this->input_w_) / static_cast<float>(frame.cols),

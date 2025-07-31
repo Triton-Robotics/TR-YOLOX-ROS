@@ -85,6 +85,11 @@ configure_file(
 )
 
 ament_auto_add_library(yolox_cpp SHARED ${TARGET_SRC})
+
+find_package(VPI REQUIRED)
+target_include_directories(yolox_cpp PRIVATE ${VPI_INCLUDE_DIRS})
+target_link_libraries(yolox_cpp PRIVATE ${VPI_LIBRARIES})
+
 ament_target_dependencies(yolox_cpp ${TARGET_DPENDENCIES})
 ament_export_dependencies(${TARGET_DPENDENCIES})
 target_link_libraries(yolox_cpp ${TARGET_LIBS})

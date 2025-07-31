@@ -20,7 +20,7 @@ public:
         cv::Mat output_frame;
         {
             std::unique_lock<std::mutex> lock(mtx);
-            not_empty.wait(lock, [this] {return !frame.empty()});
+            not_empty.wait(lock, [this] { return !this->frame.empty(); });
 
             output_frame = std::move(this->frame);
             this->frame.release();

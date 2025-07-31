@@ -3,6 +3,18 @@
 
 #include <opencv2/core/types.hpp>
 
+#include <vpi/VPI.h>                         
+#include <vpi/Image.h>                       
+#include <vpi/Stream.h>                     
+#include <vpi/algo/Rescale.h>               
+#include <vpi/OpenCVInterop.hpp>
+
+#include <cuda_runtime_api.h>
+#include <cuda_runtime.h>
+
+void launchBlobFromImage(uchar3* d_input, float* d_output, int width, int height, cudaStream_t stream);
+
+#endif // _YOLOX_CPP_CORE_HPP
 namespace yolox_cpp
 {
 /**
@@ -73,6 +85,32 @@ namespace yolox_cpp
             return out;
         }
 
+        // Assumes that a stream has already been initialized
+        VPIImage static_resize_gpu(const cv::Mat &img, VPIStream stream) {
+            VPIImage vpi_image = nullptr;
+            vpiImageCreateOpenCVMatWrapper(img, 0, &vpi_image);
+
+            VPIImageFormat type;
+            vpiImageGetFormat(vpi_image, &type);
+
+            const float r = std::min(
+                static_cast<float>(input_w_) / static_cast<float>(img.cols),
+                static_cast<float>(input_h_) / static_cast<float>(img.rows));
+            const int unpad_w = r * img.cols;
+            const int unpad_h = r * img.rows;
+                
+            // Create rescaled image, make blank with right dimensions first
+            // and then map the original image onto it 
+            VPIImage rescaled = nullptr;
+            vpiImageCreate(unpad_h, unpad_w, type, VPI_IMAGE_BUFFER_CUDA_PITCH_LINEAR, &rescaled);
+            vpiSubmitRescale(stream, VPI_BACKEND_CUDA, vpi_image, rescaled, VPI_INTERP_LINEAR, VPI_BORDER_ZERO, nullptr);
+
+            // Destroy unneeded images
+            vpiImageDestroy(vpi_image);
+
+            return vpi_output;
+        }
+
         // for NCHW
         void blobFromImage(const cv::Mat &img, float *blob_data)
         {
@@ -110,6 +148,21 @@ namespace yolox_cpp
                 cv::merge(img_f32_split, img_f32);
             }
             memcpy(blob_data, img_f32.data, img.rows * img.cols * channels * sizeof(float));
+        }
+
+        void blobFromVPIImage(VPIImage input, float* blob_output, cudaStream_t stream) {
+            VIPImageData data;
+            vpiImageLock(input, VPI_LOCK_READ, &data);
+
+            auto& plane = data.buffer.pitch.planes[0];
+            uchar3* ptr = reinterpret_cast<uchar3*>(plane.data);
+            int width = plane.width;
+            int height = plane.height;
+
+            // Cuda Kernel
+            launchBlobFromImage<<<grid, block, 0, stream>>>(ptr, blob_output, width, height);
+
+            vpiImageUnlock(input);
         }
 
         void generate_grids_and_stride(const int target_w, const int target_h, const std::vector<int> &strides, std::vector<GridAndStride> &grid_strides)
