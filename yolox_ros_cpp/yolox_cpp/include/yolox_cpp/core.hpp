@@ -108,7 +108,7 @@ namespace yolox_cpp
             // Destroy unneeded images
             vpiImageDestroy(vpi_image);
 
-            return vpi_output;
+            return rescaled;
         }
 
         // for NCHW

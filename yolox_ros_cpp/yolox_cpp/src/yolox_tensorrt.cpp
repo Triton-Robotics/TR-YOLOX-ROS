@@ -96,14 +96,28 @@ namespace yolox_cpp
     {
         // preprocess
         auto now = std::chrono::system_clock::now();
-        auto pr_img = static_resize(frame);
+        auto pr_img = static_resize_gpu(frame);
         auto end = std::chrono::system_clock::now();
         auto elapsed_inf = std::chrono::duration_cast<std::chrono::microseconds>(end - now);
         printf("resize time: %5ld us\n", elapsed_inf.count());
-        blobFromImage(pr_img, input_blob_.data());
+
+        VPIImageData data;
+        vpiImageLock(pr_img, VPI_LOCK_READ, &data);
+
+        int width = data.buffer.pitch.planes[0].width;
+        int height = data.buffer.pitch.planes[1].height;
+
+        float* output;
+        
+        int num_elements = 3 * width * height;
+        cudaMalloc(&output, sizeof(float) * num_elements);
+
+        cudaStream_t stream;
+
+        blobFromVPIImage(pr_img, output, input_blob_.data(), stream);
         
         // inference
-        this->doInference(input_blob_.data(), output_blob_.data());
+        this->doInference(input_blob_.data(), output_blob_.data(), stream);
 
         // postprocess
         const float scale = std::min(
@@ -119,10 +133,8 @@ namespace yolox_cpp
         return objects;
     }
 
-    void YoloXTensorRT::doInference(const float *input, float *output)
+    void YoloXTensorRT::doInference(const float *input, float *output, cudaStream_t stream)
     {
-        // Create stream
-        cudaStream_t stream;
         CHECK(cudaStreamCreate(&stream));
 
         // DMA input batch data to device, infer on the batch asynchronously, and DMA output back to host
