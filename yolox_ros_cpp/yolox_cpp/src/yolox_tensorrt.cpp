@@ -115,6 +115,9 @@ namespace yolox_cpp
         cudaStream_t stream;
 
         blobFromVPIImage(pr_img, output, input_blob_.data(), stream);
+
+        // No more use for the VPI Image
+        vpiImageDestroy(pr_img);
         
         // inference
         this->doInference(input_blob_.data(), output_blob_.data(), stream);

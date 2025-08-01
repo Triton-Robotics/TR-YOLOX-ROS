@@ -34,6 +34,8 @@ namespace yolox_cpp
         int grid0;
         int grid1;
         int stride;
+
+        __host__ __device__
         GridAndStride(const int grid0_, const int grid1_, const int stride_)
             : grid0(grid0_), grid1(grid1_), stride(stride_)
         {
@@ -70,6 +72,10 @@ namespace yolox_cpp
         const std::vector<int> strides_ = {8, 16, 32};
         const std::vector<int> strides_p6_ = {8, 16, 32, 64};
         std::vector<GridAndStride> grid_strides_;
+
+        const int strides_gpu_[3] = {8, 16, 32};
+        const int strides_p6_gpu_[4] = {8, 16, 32, 64};
+        GridAndStride* grid_strides_gpu_;
 
         cv::Mat static_resize(const cv::Mat &img)
         {

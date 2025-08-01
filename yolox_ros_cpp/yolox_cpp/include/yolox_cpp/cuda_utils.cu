@@ -1,4 +1,5 @@
-_global__ void blobFromImage(uchar3* image_data, float* output, int width, int height) {
+
+__global__ void blobFromImage(uchar3* image_data, float* output, int width, int height) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -24,4 +25,8 @@ void launchBlobFromImage(uchar3* d_input, float* d_output, int width, int height
     
     blobFromImage<<<grid, block>>>(d_input, d_output, width, height);
     cudaDeviceSynchronize();
+}
+
+__global__ void generate_grids_and_strides() {
+    
 }
