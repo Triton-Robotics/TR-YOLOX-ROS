@@ -94,15 +94,19 @@ namespace yolox_cpp
 
     std::vector<Object> YoloXTensorRT::inference(const cv::Mat &frame)
     {
+        // Create VPI Stream
+        VPIStream vpi_stream;
+        vpiStreamCreate(0, &vpi_stream);
+
         // preprocess
         auto now = std::chrono::system_clock::now();
-        auto pr_img = static_resize_gpu(frame);
+        auto pr_img = static_resize_gpu(frame, vpi_stream);
         auto end = std::chrono::system_clock::now();
         auto elapsed_inf = std::chrono::duration_cast<std::chrono::microseconds>(end - now);
         printf("resize time: %5ld us\n", elapsed_inf.count());
 
         VPIImageData data;
-        vpiImageLock(pr_img, VPI_LOCK_READ, &data);
+        vpiImageLockData(pr_img, VPI_LOCK_READ, VPI_IMAGE_BUFFER_CUDA_PITCH_LINEAR, &data);
 
         int width = data.buffer.pitch.planes[0].width;
         int height = data.buffer.pitch.planes[1].height;
@@ -113,14 +117,16 @@ namespace yolox_cpp
         cudaMalloc(&output, sizeof(float) * num_elements);
 
         cudaStream_t stream;
+        cudaStreamCreate(&stream);
 
-        blobFromVPIImage(pr_img, output, input_blob_.data(), stream);
+        blobFromVPIImage(pr_img, output, stream);
 
         // No more use for the VPI Image
         vpiImageDestroy(pr_img);
+        vpiStreamDestroy(vpi_stream);
         
         // inference
-        this->doInference(input_blob_.data(), output_blob_.data(), stream);
+        this->doInference(output, output_blob_.data(), stream);
 
         // postprocess
         const float scale = std::min(

@@ -14,7 +14,6 @@
 
 void launchBlobFromImage(uchar3* d_input, float* d_output, int width, int height, cudaStream_t stream);
 
-#endif // _YOLOX_CPP_CORE_HPP
 namespace yolox_cpp
 {
 /**
@@ -94,7 +93,7 @@ namespace yolox_cpp
         // Assumes that a stream has already been initialized
         VPIImage static_resize_gpu(const cv::Mat &img, VPIStream stream) {
             VPIImage vpi_image = nullptr;
-            vpiImageCreateOpenCVMatWrapper(img, 0, &vpi_image);
+            vpiImageCreateWrapperOpenCVMat(img, 0, &vpi_image);
 
             VPIImageFormat type;
             vpiImageGetFormat(vpi_image, &type);
@@ -109,7 +108,7 @@ namespace yolox_cpp
             // and then map the original image onto it 
             VPIImage rescaled = nullptr;
             vpiImageCreate(unpad_h, unpad_w, type, VPI_IMAGE_BUFFER_CUDA_PITCH_LINEAR, &rescaled);
-            vpiSubmitRescale(stream, VPI_BACKEND_CUDA, vpi_image, rescaled, VPI_INTERP_LINEAR, VPI_BORDER_ZERO, nullptr);
+            vpiSubmitRescale(stream, VPI_BACKEND_CUDA, vpi_image, rescaled, VPI_INTERP_LINEAR, VPI_BORDER_ZERO, 0);
 
             // Destroy unneeded images
             vpiImageDestroy(vpi_image);
@@ -157,8 +156,8 @@ namespace yolox_cpp
         }
 
         void blobFromVPIImage(VPIImage input, float* blob_output, cudaStream_t stream) {
-            VIPImageData data;
-            vpiImageLock(input, VPI_LOCK_READ, &data);
+            VPIImageData data;
+            vpiImageLockData(input, VPI_LOCK_READ, VPI_IMAGE_BUFFER_CUDA_PITCH_LINEAR, &data);
 
             auto& plane = data.buffer.pitch.planes[0];
             uchar3* ptr = reinterpret_cast<uchar3*>(plane.data);
@@ -166,7 +165,7 @@ namespace yolox_cpp
             int height = plane.height;
 
             // Cuda Kernel
-            launchBlobFromImage<<<grid, block, 0, stream>>>(ptr, blob_output, width, height);
+            launchBlobFromImage(ptr, blob_output, width, height, stream);
 
             vpiImageUnlock(input);
         }
@@ -326,4 +325,4 @@ namespace yolox_cpp
         }
     };
 }
-#endif
+#endif // _YOLOX_CPP_CORE_HPP

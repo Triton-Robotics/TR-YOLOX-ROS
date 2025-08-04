@@ -18,13 +18,13 @@ __global__ void blobFromImage(uchar3* image_data, float* output, int width, int 
     return;
 }
 
-void launchBlobFromImage(uchar3* d_input, float* d_output, int width, int height) {
+void launchBlobFromImage(uchar3* d_input, float* d_output, int width, int height, cudaStream_t stream) {
     dim3 block(16, 16);
     dim3 grid((width + block.x - 1) / block.x, 
               (height + block.y - 1) / block.y);
     
-    blobFromImage<<<grid, block>>>(d_input, d_output, width, height);
-    cudaDeviceSynchronize();
+    blobFromImage<<<grid, block, 0, stream>>>(d_input, d_output, width, height);
+    cudaDeviceSynchronize(stream);
 }
 
 __global__ void generate_grids_and_strides() {

@@ -40,7 +40,7 @@ namespace yolox_cpp{
             std::vector<Object> inference(const cv::Mat& frame) override;
 
         private:
-            void doInference(const float* input, float* output);
+            void doInference(const float* input, float* output, cudaStream_t stream);
 
             int DEVICE_ = 0;
             Logger gLogger_;
