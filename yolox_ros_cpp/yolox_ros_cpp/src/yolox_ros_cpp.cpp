@@ -92,6 +92,8 @@ namespace yolox_ros_cpp
         RCLCPP_INFO(this->get_logger(), "model loaded");
 
         rclcpp::QoS qos_profile(1);  // Queue depth of 1
+        qos_profile.best_effort(); // Default is "reliable" which tries to retransmit missed frames, best_effort() avoids this
+                                   // Good for realtime
 this->sub_image_ = image_transport::create_subscription(
             this, this->params_.src_image_topic_name,
             std::bind(&YoloXNode::colorImageCallback, this, std::placeholders::_1),

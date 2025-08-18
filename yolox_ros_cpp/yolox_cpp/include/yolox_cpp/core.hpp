@@ -3,6 +3,17 @@
 
 #include <opencv2/core/types.hpp>
 
+#include <vpi/VPI.h>                         
+#include <vpi/Image.h>                       
+#include <vpi/Stream.h>                     
+#include <vpi/algo/Rescale.h>               
+#include <vpi/OpenCVInterop.hpp>
+
+#include <cuda_runtime_api.h>
+#include <cuda_runtime.h>
+
+void launchBlobFromImage(uchar3* d_input, float* d_output, int width, int height, cudaStream_t stream);
+
 namespace yolox_cpp
 {
 /**
@@ -22,6 +33,8 @@ namespace yolox_cpp
         int grid0;
         int grid1;
         int stride;
+
+        __host__ __device__
         GridAndStride(const int grid0_, const int grid1_, const int stride_)
             : grid0(grid0_), grid1(grid1_), stride(stride_)
         {
@@ -59,6 +72,10 @@ namespace yolox_cpp
         const std::vector<int> strides_p6_ = {8, 16, 32, 64};
         std::vector<GridAndStride> grid_strides_;
 
+        const int strides_gpu_[3] = {8, 16, 32};
+        const int strides_p6_gpu_[4] = {8, 16, 32, 64};
+        GridAndStride* grid_strides_gpu_;
+
         cv::Mat static_resize(const cv::Mat &img)
         {
             const float r = std::min(
@@ -71,6 +88,32 @@ namespace yolox_cpp
             cv::Mat out(input_h_, input_w_, CV_8UC3, cv::Scalar(114, 114, 114));
             re.copyTo(out(cv::Rect(0, 0, re.cols, re.rows)));
             return out;
+        }
+
+        // Assumes that a stream has already been initialized
+        VPIImage static_resize_gpu(const cv::Mat &img, VPIStream stream) {
+            VPIImage vpi_image = nullptr;
+            vpiImageCreateWrapperOpenCVMat(img, 0, &vpi_image);
+
+            VPIImageFormat type;
+            vpiImageGetFormat(vpi_image, &type);
+
+            const float r = std::min(
+                static_cast<float>(input_w_) / static_cast<float>(img.cols),
+                static_cast<float>(input_h_) / static_cast<float>(img.rows));
+            const int unpad_w = r * img.cols;
+            const int unpad_h = r * img.rows;
+                
+            // Create rescaled image, make blank with right dimensions first
+            // and then map the original image onto it 
+            VPIImage rescaled = nullptr;
+            vpiImageCreate(unpad_h, unpad_w, type, VPI_IMAGE_BUFFER_CUDA_PITCH_LINEAR, &rescaled);
+            vpiSubmitRescale(stream, VPI_BACKEND_CUDA, vpi_image, rescaled, VPI_INTERP_LINEAR, VPI_BORDER_ZERO, 0);
+
+            // Destroy unneeded images
+            vpiImageDestroy(vpi_image);
+
+            return rescaled;
         }
 
         // for NCHW
@@ -110,6 +153,21 @@ namespace yolox_cpp
                 cv::merge(img_f32_split, img_f32);
             }
             memcpy(blob_data, img_f32.data, img.rows * img.cols * channels * sizeof(float));
+        }
+
+        void blobFromVPIImage(VPIImage input, float* blob_output, cudaStream_t stream) {
+            VPIImageData data;
+            vpiImageLockData(input, VPI_LOCK_READ, VPI_IMAGE_BUFFER_CUDA_PITCH_LINEAR, &data);
+
+            auto& plane = data.buffer.pitch.planes[0];
+            uchar3* ptr = reinterpret_cast<uchar3*>(plane.data);
+            int width = plane.width;
+            int height = plane.height;
+
+            // Cuda Kernel
+            launchBlobFromImage(ptr, blob_output, width, height, stream);
+
+            vpiImageUnlock(input);
         }
 
         void generate_grids_and_stride(const int target_w, const int target_h, const std::vector<int> &strides, std::vector<GridAndStride> &grid_strides)
@@ -267,4 +325,4 @@ namespace yolox_cpp
         }
     };
 }
-#endif
+#endif // _YOLOX_CPP_CORE_HPP

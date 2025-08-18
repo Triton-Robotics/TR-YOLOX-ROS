@@ -94,18 +94,40 @@ namespace yolox_cpp
 
     std::vector<Object> YoloXTensorRT::inference(const cv::Mat &frame)
     {
+        // Create VPI Stream
+        VPIStream vpi_stream;
+        vpiStreamCreate(0, &vpi_stream);
+
         // preprocess
         auto now = std::chrono::system_clock::now();
-        auto pr_img = static_resize(frame);
+        auto pr_img = static_resize_gpu(frame, vpi_stream);
         auto end = std::chrono::system_clock::now();
         auto elapsed_inf = std::chrono::duration_cast<std::chrono::microseconds>(end - now);
         printf("resize time: %5ld us\n", elapsed_inf.count());
-        blobFromImage(pr_img, input_blob_.data());
+
+        VPIImageData data;
+        vpiImageLockData(pr_img, VPI_LOCK_READ, VPI_IMAGE_BUFFER_CUDA_PITCH_LINEAR, &data);
+
+        int width = data.buffer.pitch.planes[0].width;
+        int height = data.buffer.pitch.planes[1].height;
+
+        float* output;
+        
+        int num_elements = 3 * width * height;
+        cudaMalloc(&output, sizeof(float) * num_elements);
+
+        cudaStream_t stream;
+        cudaStreamCreate(&stream);
+
+        blobFromVPIImage(pr_img, output, stream);
+
+        // No more use for the VPI Image
+        vpiImageDestroy(pr_img);
+        vpiStreamDestroy(vpi_stream);
         
         // inference
-        this->doInference(input_blob_.data(), output_blob_.data());
+        this->doInference(output, output_blob_.data(), stream);
 
-        
         // postprocess
         const float scale = std::min(
             static_cast<float>(this->input_w_) / static_cast<float>(frame.cols),
@@ -120,10 +142,8 @@ namespace yolox_cpp
         return objects;
     }
 
-    void YoloXTensorRT::doInference(const float *input, float *output)
+    void YoloXTensorRT::doInference(const float *input, float *output, cudaStream_t stream)
     {
-        // Create stream
-        cudaStream_t stream;
         CHECK(cudaStreamCreate(&stream));
 
         // DMA input batch data to device, infer on the batch asynchronously, and DMA output back to host
