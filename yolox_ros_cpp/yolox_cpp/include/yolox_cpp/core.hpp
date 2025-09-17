@@ -91,7 +91,7 @@ namespace yolox_cpp
         }
 
         // Assumes that a stream has already been initialized
-        VPIImage static_resize_gpu(const cv::Mat &img, VPIStream stream) {
+        VPIImage static_resize_vpi(const cv::Mat &img, VPIStream stream) {
             VPIImage vpi_image = nullptr;
             vpiImageCreateWrapperOpenCVMat(img, 0, &vpi_image);
 
@@ -160,7 +160,8 @@ namespace yolox_cpp
             vpiImageLockData(input, VPI_LOCK_READ, VPI_IMAGE_BUFFER_CUDA_PITCH_LINEAR, &data);
 
             auto& plane = data.buffer.pitch.planes[0];
-            uchar3* ptr = reinterpret_cast<uchar3*>(plane.data);
+            uchar3* ptr = reint
+erpret_cast<uchar3*>(plane.data);
             int width = plane.width;
             int height = plane.height;
 
@@ -176,7 +177,8 @@ namespace yolox_cpp
             for (auto stride : strides)
             {
                 const int num_grid_w = target_w / stride;
-                const int num_grid_h = target_h / stride;
+                const int num_g
+rid_h = target_h / stride;
                 for (int g1 = 0; g1 < num_grid_h; ++g1)
                 {
                     for (int g0 = 0; g0 < num_grid_w; ++g0)
@@ -189,7 +191,8 @@ namespace yolox_cpp
 
         void generate_yolox_proposals(const std::vector<GridAndStride> &grid_strides, const float *feat_ptr, const float prob_threshold, std::vector<Object> &objects)
         {
-            const int num_anchors = grid_strides.size();
+            const int num_ancho
+rs = grid_strides.size();
             objects.clear();
 
             for (int anchor_idx = 0; anchor_idx < num_anchors; ++anchor_idx)
