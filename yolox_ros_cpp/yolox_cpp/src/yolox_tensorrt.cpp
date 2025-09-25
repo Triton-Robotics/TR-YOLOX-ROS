@@ -100,7 +100,7 @@ namespace yolox_cpp
 
         // preprocess
         auto now = std::chrono::system_clock::now();
-        auto pr_img = static_resize_gpu(frame, vpi_stream);
+        auto pr_img = static_resize_vpi(frame, vpi_stream);
         auto end = std::chrono::system_clock::now();
         auto elapsed_inf = std::chrono::duration_cast<std::chrono::microseconds>(end - now);
         printf("resize time: %5ld us\n", elapsed_inf.count());
