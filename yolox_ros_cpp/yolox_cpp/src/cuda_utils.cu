@@ -1,6 +1,8 @@
 #include <cstdio>
 #include <yolox_cpp/cuda_utils.cuh>
 
+
+// NGL this could prob be 2 lines, with texture fetch
 __global__ void gpuResizeAndBlobFromImage(uchar3* image_data, float* output, int r_width, int r_height, 
                                             int input_width, int input_height, float w_ratio, float h_ratio) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -35,6 +37,9 @@ __global__ void gpuResizeAndBlobFromImage(uchar3* image_data, float* output, int
     int r_idx = 0 * r_height * r_width + y * r_width + x;
     int g_idx = 1 * r_height * r_width + y * r_width + x;
     int b_idx = 2 * r_height * r_width + y * r_width + x;
+
+    // this is probably super memory bandwidth limited, if you wanted to be clever, you could store a whole block of pixels in shared mem, and then reduce redundant accesses by 4x (hopefully 4x speedup)
+    // however, this may be overshadowed by texture fetch caching if you were to use texture approach since it has a fancy caching mechanism which is pretty good
     
     uchar3 p00 = image_data[y0 * input_width + x0];
     uchar3 p01 = image_data[y0 * input_width + x1];
@@ -42,7 +47,7 @@ __global__ void gpuResizeAndBlobFromImage(uchar3* image_data, float* output, int
     uchar3 p11 = image_data[y1 * input_width + x1];
 
     // Red channel (uchar3.z)
-    output[r_idx] = w00 * p00.z + w01 * p01.z + w10 * p10.z + w11 * p11.z;
+    output[r_idx] = w00 * p00.z + w01 * p01.z + w10 * p10.z + w11 * p11.z; // the compiler might already do it, but you could use FMA intrinsics as well
     // Green channel (uchar3.y)
     output[g_idx] = w00 * p00.y + w01 * p01.y + w10 * p10.y + w11 * p11.y;
     // Blue channel (uchar3.x)
@@ -51,7 +56,8 @@ __global__ void gpuResizeAndBlobFromImage(uchar3* image_data, float* output, int
 
 extern "C" void launchGPUResizeAndBlobFromImage(uchar3* image_data, float* output, int r_width, int r_height, 
                                     int input_width, int input_height, float w_ratio, float h_ratio, cudaStream_t stream) {
-    dim3 block(16, 16);
+                                        //use occupancy calculator in nsight compute
+    dim3 block(16, 16); // 16x16 or 256x1 or 32x8 or whatever fundamentally doesn't matter, its about total block count and how hardware resources are distributed on the SM
     dim3 grid((r_width + block.x - 1) / block.x, 
              (r_height + block.y - 1) / block.y);
     gpuResizeAndBlobFromImage<<<grid, block, 0, stream>>>(image_data, output, r_width, r_height, input_width, input_height, w_ratio, h_ratio);

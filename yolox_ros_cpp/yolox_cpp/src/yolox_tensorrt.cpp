@@ -114,18 +114,21 @@ namespace yolox_cpp
 
         auto t1 = std::chrono::high_resolution_clock::now();
         auto elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
-        printf("Copy Time: %5ld us\n", elapsed_us);
+        printf("Copy Time: %5ld us\n", elapsed_us); // if you want to do proper timing use cuda events
 
         float w_r = static_cast<float>(frame.cols) / this->input_w_;
         float h_r = static_cast<float>(frame.rows) / this->input_h_;
 
         t0 = std::chrono::high_resolution_clock::now();
+        
+        // IMPORTANT: Synchronize on the copy stream before you use it
+        
         launchGPUResizeAndBlobFromImage(d_image, d_output,
                                         this->input_w_, this->input_h_,
                                         frame.cols, frame.rows,
                                         w_r, h_r,
-                                        resize_stream_);
-        cudaStreamSynchronize(resize_stream_);
+                                        resize_stream_); // no reason to have 2 different streams, since the dependencies are serial
+        cudaStreamSynchronize(resize_stream_); // try and avoid unneccessary cudaStreamSynchronize, they are expensive, to do this make sure 
         t1 = std::chrono::high_resolution_clock::now();
         elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
         printf("resize time on GPU: %5ld us\n", elapsed_us);
@@ -159,7 +162,8 @@ namespace yolox_cpp
         // Change to Device to Device copy
         this->inference_buffers_[this->inputIndex_] = const_cast<float*>(input);
 
-        bool success = context_->executeV2(this->inference_buffers_);
+        bool success = context_->executeV2(this->inference_buffers_); // try to make this in a stream
+        // if you have to use the default stream, make sure to compile with cudaStreamPerThread
         if (!success)
             throw std::runtime_error("failed inference");
 
