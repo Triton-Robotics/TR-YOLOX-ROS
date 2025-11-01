@@ -15,15 +15,12 @@ namespace yolox_ros_cpp
         this->init = true;
         this->d_image_ = nullptr;
         this->d_output_ = nullptr;
-        cudaStreamCreate(&this->copy_stream_);
-        cudaStreamCreate(&this->resize_stream_);
+        cudaStreamCreate(&this->stream_);
         rclcpp::on_shutdown([this]() {
-            cudaStreamDestroy(this->copy_stream_);
-            cudaStreamDestroy(this->resize_stream_);
+            cudaStreamDestroy(this->stream_);
             cudaFree(this->d_image_);
             cudaFree(this->d_output_);
-            this->copy_stream_ = nullptr;
-            this->resize_stream_ = nullptr;
+            this->stream_ = nullptr;
         });
         this->init_timer_->cancel();
         this->param_listener_ = std::make_shared<yolox_parameters::ParamListener>(
@@ -120,10 +117,15 @@ this->sub_image_ = image_transport::create_subscription(
                 this->params_.publish_boundingbox_topic_name,
                 10);
         } else {
-            this->pub_detection2d_ = this->create_publisher<tr_messages::msg::DetWithImg>(
+            this->pub_detection2d_ = this->create_publisher<tr_messages::msg::Detections>(
                 this->params_.publish_boundingbox_topic_name,
                 10);
         }
+
+        this->pub_latency_ = this->create_publisher<std_msgs::msg::Float64>(
+            "latency_ms",
+            10
+        )
 
         if (this->params_.publish_resized_image) {
             this->pub_image_ = image_transport::create_publisher(this, this->params_.publish_image_topic_name);
@@ -134,22 +136,28 @@ this->sub_image_ = image_transport::create_subscription(
 {
     auto now_noninf = std::chrono::system_clock::now();
     auto img = cv_bridge::toCvShare(ptr, "bgr8");
-
     auto now = std::chrono::system_clock::now();
     // Initialization
     if (this->init) {
-        size_t image_bytes = sizeof(uchar3) * img->image.cols * img->image.rows;
-        cudaMallocManaged(reinterpret_cast<void**>(&this->d_image_), image_bytes);
-        size_t output_bytes = sizeof(float) * 416 * 416 * 3;
-        cudaMallocManaged(reinterpret_cast<void**>(&this->d_output_), output_bytes);
+        this->input_bytes = sizeof(uchar3) * img->image.cols * img->image.rows;
+        cudaMallocManaged(reinterpret_cast<void**>(&this->d_image_), this->input_bytes, cudaMemAttachHost);
+        this->output_bytes = sizeof(float) * 416 * 416 * 3;
+        cudaMallocManaged(reinterpret_cast<void**>(&this->d_output_), this->output_bytes, cudaMemAttachHost);
         this->init = false;
     }
+    // 
+    auto copy_start = std::chrono::high_resolution_clock::now();
+    std::memcpy(this->d_image_, img->image.data, this->input_bytes);
+
+    auto copy_end = std::chrono::high_resolution_clock::now();
+    auto copy_time = std::chrono::duration_cast<std::chrono::microseconds>(copy_end - copy_start).count();
+
     auto objects = this->yolox_->inference(img->image, this->d_image_, this->d_output_, 
-                                            this->copy_stream_, this->resize_stream_);  // Use img->image
+                                            this->stream_);
     auto end = std::chrono::system_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - now);
 
-    if (this->params_.imshow_isshow)
+    if (this->params_.imshow_isshow)    
     {
         yolox_cpp::utils::draw_objects(img->image, objects, this->class_names_);
         cv::imshow("yolox", img->image);
@@ -179,10 +187,10 @@ this->sub_image_ = image_transport::create_subscription(
         vision_msgs::msg::Detection2DArray detections = objects_to_detection2d(objects, img->header);
         if (!detections.detections.empty())
         {
-            tr_messages::msg::DetWithImg detwithimg;
+            tr_messages::msg::Detections detections_msg;
             // detwithimg.image = *ptr;  // Copy unavoidable due to const shared ptr
-            detwithimg.detection_info.detections = detections.detections;
-            this->pub_detection2d_->publish(detwithimg);
+            detections_msg.detection_info.detections = detections.detections;
+            this->pub_detection2d_->publish(detections_msg);
         }
         else
         {
@@ -191,7 +199,8 @@ this->sub_image_ = image_transport::create_subscription(
     }
     auto end_noninf = std::chrono::system_clock::now();
     auto elapsed_noninf = std::chrono::duration_cast<std::chrono::microseconds>(end_noninf - now_noninf);
-    RCLCPP_INFO(this->get_logger(), "Inference time: %5ld us Non Inference time: %5ld", elapsed.count(), elapsed_noninf.count() - elapsed.count());
+
+    this->pub_latency_->publish(elapsed_noninf.count());
 }
 
     bboxes_ex_msgs::msg::BoundingBoxes YoloXNode::objects_to_bboxes(

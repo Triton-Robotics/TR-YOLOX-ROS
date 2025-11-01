@@ -40,9 +40,11 @@ namespace yolox_cpp
         this->engine_ = std::unique_ptr<ICudaEngine>(this->runtime_->deserializeCudaEngine(trtModelStream.data(), size));
         assert(this->engine_ != nullptr);
         this->context_ = std::unique_ptr<IExecutionContext>(this->engine_->createExecutionContext());
+        
         assert(this->context_ != nullptr);
 
         const auto input_name = this->engine_->getIOTensorName(this->inputIndex_);
+        std::cout << "Input tensor name: " << input_name << "\n";
         const auto input_dims = this->engine_->getTensorShape(input_name);
         this->input_h_ = input_dims.d[2];
         this->input_w_ = input_dims.d[3];
@@ -59,6 +61,7 @@ namespace yolox_cpp
 
         // allocate buffer
         this->input_blob_.resize(this->input_h_ * this->input_w_ * 3);
+
         this->output_blob_.resize(this->output_size_);
 
         // Pointers to input and output device buffers to pass to engine.
@@ -97,24 +100,11 @@ namespace yolox_cpp
     }
 
     std::vector<yolox_cpp::Object> YoloXTensorRT::inference(const cv::Mat &frame, uchar3* d_image, float* d_output, 
-                                                            cudaStream_t copy_stream_, cudaStream_t resize_stream_)
+                                                            cudaStream_t stream_, int& latency)
     {
         auto t0 = std::chrono::high_resolution_clock::now();
-
-        cudaMemcpy2DAsync(
-            d_image,                       
-            frame.cols * sizeof(uchar3),  
-            frame.data,                 
-            frame.step,                    
-            frame.cols * sizeof(uchar3),   
-            frame.rows,                   
-            cudaMemcpyHostToDevice,
-            copy_stream_
-        );
-
         auto t1 = std::chrono::high_resolution_clock::now();
         auto elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
-        printf("Copy Time: %5ld us\n", elapsed_us);
 
         float w_r = static_cast<float>(frame.cols) / this->input_w_;
         float h_r = static_cast<float>(frame.rows) / this->input_h_;
@@ -124,17 +114,16 @@ namespace yolox_cpp
                                         this->input_w_, this->input_h_,
                                         frame.cols, frame.rows,
                                         w_r, h_r,
-                                        resize_stream_);
-        cudaStreamSynchronize(resize_stream_);
+                                        stream_);
         t1 = std::chrono::high_resolution_clock::now();
         elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
-        printf("resize time on GPU: %5ld us\n", elapsed_us);
 
         t0 = std::chrono::high_resolution_clock::now();
-        this->doInference(d_output, output_blob_.data(), copy_stream_);
+        this->doInference(d_output, output_blob_.data(), stream_);
         t1 = std::chrono::high_resolution_clock::now();
         elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
-        printf("Inference time on GPU: %5ld us\n", elapsed_us);
+
+        latency = elapsed_us;
 
         const float scale = std::min(
             static_cast<float>(this->input_w_) / frame.cols,
@@ -147,13 +136,12 @@ namespace yolox_cpp
                     this->bbox_conf_thresh_, scale, frame.cols, frame.rows);
         t1 = std::chrono::high_resolution_clock::now();
         elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
-        printf("Post time: %5ld us\n", elapsed_us);
 
         return objects;
     }
 
 
-    void YoloXTensorRT::doInference(const float *input, float *output, cudaStream_t copy_stream_)
+    void YoloXTensorRT::doInference(const float *input, float *output, cudaStream_t stream_)
     {
         // DMA input batch data to device, infer on the batch asynchronously, and DMA output back to host
         // Change to Device to Device copy
@@ -168,9 +156,9 @@ namespace yolox_cpp
                 output,
                 this->inference_buffers_[this->outputIndex_],
                 this->output_size_ * sizeof(float),
-                cudaMemcpyDeviceToHost, copy_stream_));
+                cudaMemcpyDeviceToHost, stream_));
 
-        CHECK(cudaStreamSynchronize(copy_stream_));
+        CHECK(cudaStreamSynchronize(stream_));
     }
 
 } // namespace yolox_cpp

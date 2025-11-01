@@ -40,7 +40,7 @@ namespace yolox_cpp
         {
         }
         virtual std::vector<Object> inference(const cv::Mat &frame, uchar3* d_image, float* d_output, 
-                                                cudaStream_t copy_stream_, cudaStream_t resize_stream_) = 0;
+                                                cudaStream_t stream_, int& latency) = 0;
 
     protected:
         int input_w_;

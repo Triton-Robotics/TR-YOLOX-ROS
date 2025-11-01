@@ -39,9 +39,9 @@ namespace yolox_cpp{
                           int num_classes=80, bool p6=false);
             ~YoloXTensorRT();
             std::vector<Object> inference(const cv::Mat &frame, uchar3* d_image, float* d_output, 
-                                            cudaStream_t copy_stream_, cudaStream_t resize_stream_);
+                                            cudaStream_t stream_, int& latency);
         private:
-            void doInference(const float* input, float* output, cudaStream_t copy_stream_);
+            void doInference(const float* input, float* output, cudaStream_t stream_);
 
             int DEVICE_ = 0;
             Logger gLogger_;
@@ -54,7 +54,6 @@ namespace yolox_cpp{
             void *inference_buffers_[2];
             std::vector<float> input_blob_;
             std::vector<float> output_blob_;
-
     };
 } // namespace yolox_cpp
 
