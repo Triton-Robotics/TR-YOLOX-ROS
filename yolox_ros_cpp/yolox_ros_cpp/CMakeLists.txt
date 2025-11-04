@@ -19,7 +19,6 @@ endif()
 find_package(ament_cmake_auto REQUIRED)
 find_package(tr_messages REQUIRED)
 
-
 ament_auto_find_build_dependencies()
 
 if(NOT yolox_cpp_FOUND)
@@ -30,6 +29,7 @@ endif()
 ament_auto_add_library(yolox_ros_cpp SHARED
   src/yolox_ros_cpp.cpp
 )
+
 rclcpp_components_register_node(
   yolox_ros_cpp
   PLUGIN "yolox_ros_cpp::YoloXNode"

@@ -17,6 +17,7 @@
 
 #include "bboxes_ex_msgs/msg/bounding_box.hpp"
 #include "bboxes_ex_msgs/msg/bounding_boxes.hpp"
+#include "std_msgs/msg/float32.hpp"
 
 #include "yolox_cpp/yolox.hpp"
 #include "yolox_cpp/utils.hpp"
@@ -59,7 +60,7 @@ namespace yolox_ros_cpp{
 
         rclcpp::Publisher<bboxes_ex_msgs::msg::BoundingBoxes>::SharedPtr pub_bboxes_;
         rclcpp::Publisher<tr_messages::msg::Detections>::SharedPtr pub_detection2d_;
-        rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr pub_latency_;
+        rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr pub_latency_;
         
         image_transport::Publisher pub_image_;
     };

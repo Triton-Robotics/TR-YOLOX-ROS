@@ -100,7 +100,7 @@ namespace yolox_cpp
     }
 
     std::vector<yolox_cpp::Object> YoloXTensorRT::inference(const cv::Mat &frame, uchar3* d_image, float* d_output, 
-                                                            cudaStream_t stream_, int& latency)
+                                                            cudaStream_t stream_)
     {
         auto t0 = std::chrono::high_resolution_clock::now();
         auto t1 = std::chrono::high_resolution_clock::now();
@@ -122,8 +122,6 @@ namespace yolox_cpp
         this->doInference(d_output, output_blob_.data(), stream_);
         t1 = std::chrono::high_resolution_clock::now();
         elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
-
-        latency = elapsed_us;
 
         const float scale = std::min(
             static_cast<float>(this->input_w_) / frame.cols,

@@ -112,20 +112,14 @@ this->sub_image_ = image_transport::create_subscription(
             qos_profile.get_rmw_qos_profile(),
             *this->sub_options_);
 
-        if (this->params_.use_bbox_ex_msgs) {
-            this->pub_bboxes_ = this->create_publisher<bboxes_ex_msgs::msg::BoundingBoxes>(
-                this->params_.publish_boundingbox_topic_name,
-                10);
-        } else {
-            this->pub_detection2d_ = this->create_publisher<tr_messages::msg::Detections>(
-                this->params_.publish_boundingbox_topic_name,
-                10);
-        }
+        this->pub_detection2d_ = this->create_publisher<tr_messages::msg::Detections>(
+            this->params_.publish_boundingbox_topic_name,
+            10);
 
-        this->pub_latency_ = this->create_publisher<std_msgs::msg::Float64>(
+        this->pub_latency_ = this->create_publisher<std_msgs::msg::Float32>(
             "latency_ms",
             10
-        )
+        );
 
         if (this->params_.publish_resized_image) {
             this->pub_image_ = image_transport::create_publisher(this, this->params_.publish_image_topic_name);
@@ -133,52 +127,40 @@ this->sub_image_ = image_transport::create_subscription(
     }
 
     void YoloXNode::colorImageCallback(const sensor_msgs::msg::Image::ConstSharedPtr &ptr)
-{
-    auto now_noninf = std::chrono::system_clock::now();
-    auto img = cv_bridge::toCvShare(ptr, "bgr8");
-    auto now = std::chrono::system_clock::now();
-    // Initialization
-    if (this->init) {
-        this->input_bytes = sizeof(uchar3) * img->image.cols * img->image.rows;
-        cudaMallocManaged(reinterpret_cast<void**>(&this->d_image_), this->input_bytes, cudaMemAttachHost);
-        this->output_bytes = sizeof(float) * 416 * 416 * 3;
-        cudaMallocManaged(reinterpret_cast<void**>(&this->d_output_), this->output_bytes, cudaMemAttachHost);
-        this->init = false;
-    }
-    // 
-    auto copy_start = std::chrono::high_resolution_clock::now();
-    std::memcpy(this->d_image_, img->image.data, this->input_bytes);
-
-    auto copy_end = std::chrono::high_resolution_clock::now();
-    auto copy_time = std::chrono::duration_cast<std::chrono::microseconds>(copy_end - copy_start).count();
-
-    auto objects = this->yolox_->inference(img->image, this->d_image_, this->d_output_, 
-                                            this->stream_);
-    auto end = std::chrono::system_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - now);
-
-    if (this->params_.imshow_isshow)    
     {
-        yolox_cpp::utils::draw_objects(img->image, objects, this->class_names_);
-        cv::imshow("yolox", img->image);
-        if (cv::waitKey(1) == 27)
-        {
-            rclcpp::shutdown();
+        auto now_noninf = std::chrono::system_clock::now();
+        auto img = cv_bridge::toCvShare(ptr, "bgr8");
+        auto now = std::chrono::system_clock::now();
+        // Initialization
+        if (this->init) {
+            this->input_bytes = sizeof(uchar3) * img->image.cols * img->image.rows;
+            cudaMallocManaged(reinterpret_cast<void**>(&this->d_image_), this->input_bytes, cudaMemAttachHost);
+            this->output_bytes = sizeof(float) * 416 * 416 * 3;
+            cudaMallocManaged(reinterpret_cast<void**>(&this->d_output_), this->output_bytes, cudaMemAttachHost);
+            this->init = false;
         }
-    }
+        // 
+        auto copy_start = std::chrono::high_resolution_clock::now();
+        std::memcpy(this->d_image_, img->image.data, this->input_bytes);
 
-    if (this->params_.use_bbox_ex_msgs)
-    {
-        if (!this->pub_bboxes_)
+        auto copy_end = std::chrono::high_resolution_clock::now();
+        auto copy_time = std::chrono::duration_cast<std::chrono::microseconds>(copy_end - copy_start).count();
+
+        auto objects = this->yolox_->inference(img->image, this->d_image_, this->d_output_, 
+                                                this->stream_);
+        auto end = std::chrono::system_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - now);
+
+        if (this->params_.imshow_isshow)    
         {
-            RCLCPP_ERROR(this->get_logger(), "pub_bboxes_ is nullptr");
-            return;
+            yolox_cpp::utils::draw_objects(img->image, objects, this->class_names_);
+            cv::imshow("yolox", img->image);
+            if (cv::waitKey(1) == 27)
+            {
+                rclcpp::shutdown();
+            }
         }
-        auto boxes = objects_to_bboxes(img->image, objects, img->header);  // Fix here
-        this->pub_bboxes_->publish(boxes);
-    }
-    else
-    {
+
         if (!this->pub_detection2d_)
         {
             RCLCPP_ERROR(this->get_logger(), "pub_detection2d_ is nullptr");
@@ -195,33 +177,14 @@ this->sub_image_ = image_transport::create_subscription(
         else
         {
             RCLCPP_INFO(this->get_logger(), "no detections so not publishing");
-        }
-    }
-    auto end_noninf = std::chrono::system_clock::now();
-    auto elapsed_noninf = std::chrono::duration_cast<std::chrono::microseconds>(end_noninf - now_noninf);
+            }
 
-    this->pub_latency_->publish(elapsed_noninf.count());
-}
+        auto end_noninf = std::chrono::system_clock::now();
+        auto elapsed_noninf = std::chrono::duration_cast<std::chrono::microseconds>(end_noninf - now_noninf);
 
-    bboxes_ex_msgs::msg::BoundingBoxes YoloXNode::objects_to_bboxes(
-        const cv::Mat &frame, const std::vector<yolox_cpp::Object> &objects, const std_msgs::msg::Header &header)
-    {
-        bboxes_ex_msgs::msg::BoundingBoxes boxes;
-        boxes.header = header;
-        for (const auto &obj : objects)
-        {
-            bboxes_ex_msgs::msg::BoundingBox box;
-            box.probability = obj.prob;;
-            box.class_id = std::to_string(obj.label);
-            box.xmin = obj.rect.x;
-            box.ymin = obj.rect.y;
-            box.xmax = (obj.rect.x + obj.rect.width);
-            box.ymax = (obj.rect.y + obj.rect.height);
-            box.img_width = frame.cols;
-            box.img_height = frame.rows;
-            boxes.bounding_boxes.emplace_back(box);
-        }
-        return boxes;
+        std_msgs::msg::Float32 latency_msg;
+        latency_msg.data = static_cast<float>(elapsed_noninf.count());
+        this->pub_latency_->publish(latency_msg);
     }
 
     vision_msgs::msg::Detection2DArray YoloXNode::objects_to_detection2d(const std::vector<yolox_cpp::Object> &objects, const std_msgs::msg::Header &header)

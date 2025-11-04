@@ -74,11 +74,6 @@ def generate_launch_description():
             description='topic name for publishing bounding box message.'
         ),
         DeclareLaunchArgument(
-            'use_bbox_ex_msgs',
-            default_value='false',
-            description='use BoundingBoxArray message type.'
-        ),
-        DeclareLaunchArgument(
             'publish_resized_image',
             default_value='false',
             description='use BoundingBoxArray message type.'
@@ -112,8 +107,7 @@ def generate_launch_description():
                     'src_image_topic_name': LaunchConfiguration('src_image_topic_name'),
                     'publish_image_topic_name': LaunchConfiguration('publish_image_topic_name'),
                     'publish_boundingbox_topic_name': LaunchConfiguration('publish_boundingbox_topic_name'),
-                    'publish_resized_image': LaunchConfiguration('publish_resized_image'),
-                    'use_bbox_ex_msgs': LaunchConfiguration('use_bbox_ex_msgs'),
+                    'publish_resized_image': LaunchConfiguration('publish_resized_image')
                 }],
             ),
         ],
