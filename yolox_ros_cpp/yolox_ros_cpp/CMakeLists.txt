@@ -18,6 +18,7 @@ endif()
 
 find_package(ament_cmake_auto REQUIRED)
 find_package(tr_messages REQUIRED)
+find_package(shm REQUIRED)
 
 ament_auto_find_build_dependencies()
 
@@ -46,4 +47,4 @@ ament_auto_package(
   launch
 )
 
-ament_target_dependencies(yolox_ros_cpp tr_messages)
+ament_target_dependencies(yolox_ros_cpp tr_messages shm)

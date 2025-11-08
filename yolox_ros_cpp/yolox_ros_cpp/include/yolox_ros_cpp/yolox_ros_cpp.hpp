@@ -24,6 +24,7 @@
 #include "yolox_param/yolox_param.hpp"
 
 #include "tr_messages/msg/detections.hpp"
+#include "shm/SharedImage.h"
 
 namespace yolox_ros_cpp{
     class YoloXNode : public rclcpp::Node
@@ -33,6 +34,7 @@ namespace yolox_ros_cpp{
     private:
         void onInit();
         void colorImageCallback(const sensor_msgs::msg::Image::ConstSharedPtr &);
+        void sharedMemoryImageCallback(); // New callback for shared memory polling
         static bboxes_ex_msgs::msg::BoundingBoxes objects_to_bboxes(const cv::Mat &, const std::vector<yolox_cpp::Object> &, const std_msgs::msg::Header &);
         static vision_msgs::msg::Detection2DArray objects_to_detection2d(const std::vector<yolox_cpp::Object> &, const std_msgs::msg::Header &);
     protected:
@@ -56,7 +58,12 @@ namespace yolox_ros_cpp{
         std::shared_ptr<rclcpp::SubscriptionOptions> sub_options_;
 
         rclcpp::TimerBase::SharedPtr init_timer_;
+        rclcpp::TimerBase::SharedPtr shm_timer_; // Timer for polling shared memory
         image_transport::Subscriber sub_image_;
+
+        // Shared memory components
+        std::unique_ptr<SharedImageReader> sharedImageReader_;
+        int last_frame_; // Track last processed frame
 
         rclcpp::Publisher<bboxes_ex_msgs::msg::BoundingBoxes>::SharedPtr pub_bboxes_;
         rclcpp::Publisher<tr_messages::msg::Detections>::SharedPtr pub_detection2d_;
