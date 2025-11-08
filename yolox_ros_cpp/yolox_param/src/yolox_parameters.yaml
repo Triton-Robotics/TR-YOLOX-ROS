@@ -94,3 +94,7 @@ yolox_parameters:
     type: bool
     description: "Enable or disable resized image."
     default_value: false
+  use_shared_memory:
+    type: bool
+    description: "Use shared memory for image input instead of ROS topic subscription. When true, reads from shared memory; when false, uses ROS image transport."
+    default_value: false
