@@ -105,12 +105,22 @@ namespace yolox_ros_cpp
         RCLCPP_INFO(this->get_logger(), "model loaded");
 
         // Create publishers
-        this->pub_detection2d_ = this->create_publisher<tr_messages::msg::Detections>(
+        this->pub_detection2d_ = this->create_publisher<vision_msgs::msg::Detection2DArray>(
             this->params_.publish_boundingbox_topic_name,
             10);
 
         this->pub_latency_ = this->create_publisher<std_msgs::msg::Float32>(
-            "latency_ms",
+            "yolox_latency_ms",
+            10
+        );
+
+        this->pub_zc_latency_ = this->create_publisher<std_msgs::msg::Float32>(
+            "cv_yolox_start_latency_ms",
+            10
+        );
+
+        this->pub_cum_yolox_latency_ = this->create_publisher<std_msgs::msg::Float32>(
+            "cv_yolox_end_latency_ms",
             10
         );
 
@@ -119,20 +129,23 @@ namespace yolox_ros_cpp
         }
 
         // Choose input method based on parameter
-        if (this->params_.use_shared_memory) {
+        if (this->params_.use_shared_memory) { 
             // Initialize SharedImageReader for camera_image shared memory
             this->sharedImageReader_ = std::make_unique<SharedImageReader>("camera_image", 1200, 1920, 3, "CV_8U");
             this->last_frame_ = -1; // Initialize to -1 to process first frame
 
-            // Create timer for polling shared memory at ~500Hz (2ms interval)
+            // Create timer for polling shared memory 
             using namespace std::chrono_literals;
             this->shm_timer_ = this->create_wall_timer(
-                2ms, std::bind(&YoloXNode::sharedMemoryImageCallback, this));
+                0.1ms, std::bind(&YoloXNode::sharedMemoryImageCallback, this));
 
             RCLCPP_INFO(this->get_logger(), "Using shared memory input - SharedImageReader initialized for camera_image");
         } else {
             // Use ROS topic subscription
             rclcpp::QoS qos_profile(5);  // Queue depth of 5 for multithreading
+            qos_profile.reliability(rclcpp::ReliabilityPolicy::BestEffort);
+            qos_profile.durability(rclcpp::DurabilityPolicy::Volatile);
+            qos_profile.history(rclcpp::HistoryPolicy::KeepLast);
             this->sub_image_ = image_transport::create_subscription(
                 this, this->params_.src_image_topic_name,
                 std::bind(&YoloXNode::colorImageCallback, this, std::placeholders::_1),
@@ -146,6 +159,14 @@ namespace yolox_ros_cpp
 
     void YoloXNode::colorImageCallback(const sensor_msgs::msg::Image::ConstSharedPtr &ptr)
     {
+
+        rclcpp::Time callback_time = this->get_clock()->now();
+        rclcpp::Time header_stamp_time(ptr->header.stamp);
+        rclcpp::Duration yolox_ipc_latency = callback_time - header_stamp_time;
+        
+        // Uncomment to print ros pubsub latency for images
+        //RCLCPP_INFO(this->get_logger(), "Ms %0.5f", yolox_ipc_latency.nanoseconds() / 1000000.0F);
+
         auto now_noninf = std::chrono::system_clock::now();
         auto img = cv_bridge::toCvShare(ptr, "bgr8");
         auto now = std::chrono::system_clock::now();
@@ -220,12 +241,20 @@ namespace yolox_ros_cpp
         if (!this->sharedImageReader_->readImage(image, current_frame)) {
             return; // No new frame available
         }
+    
+        long timeGrabbed = this->sharedImageReader_->getTimeStamp();
 
         // Update last processed frame
         this->last_frame_ = current_frame;
 
         auto now_noninf = std::chrono::system_clock::now();
         auto now = std::chrono::system_clock::now();
+
+        // Convert the current time point to nanoseconds since the epoch
+        auto now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+            now.time_since_epoch()
+        ).count();
+        auto image_zc_time = (now_ns-timeGrabbed)/1000000.0F;
         
         // Initialization for CUDA memory (same as ROS callback)
         if (this->init) {
@@ -263,7 +292,7 @@ namespace yolox_ros_cpp
 
         // Create header with shared memory timestamp
         std_msgs::msg::Header header;
-        header.stamp = rclcpp::Time(this->sharedImageReader_->getTimeStamp());
+        header.stamp = rclcpp::Time(timeGrabbed);
         header.frame_id = "camera_optical_frame";
 
         vision_msgs::msg::Detection2DArray detections = objects_to_detection2d(objects, header);
@@ -273,12 +302,34 @@ namespace yolox_ros_cpp
             // this->pub_detection2d_->publish(detections_msg);
 
             this->pub_detection2d_->publish(detections);
-            
-            RCLCPP_DEBUG(this->get_logger(), "Published %zu detections from shared memory frame %d", 
-                        detections.detections.size(), current_frame);
+
+            // RCLCPP_INFO(this->get_logger(), "Published %zu detections from shared memory frame %d", 
+            //             detections.detections.size(), current_frame);
         } else {
             RCLCPP_DEBUG(this->get_logger(), "No detections from shared memory frame %d", current_frame);
         }
+        std::chrono::system_clock::time_point end_yolo = std::chrono::system_clock::now();
+        // Convert the current time point to nanoseconds since the epoch
+        auto end_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+            end_yolo.time_since_epoch()
+        ).count();
+
+        // time from beginning to end of yolox callback
+        float yolox_time = (end_ns - now_ns) / 1000000.0F;
+        // total time from image grabbed to end of yolox
+        float cumulative_yolox_time = (end_ns-timeGrabbed)/1000000.0F;
+        // RCLCPP_INFO(this->get_logger(), "yolox time + ipc =  %0.3f + %0.3f = %0.3f, raw %0.3f", 
+        //     yolox_time, image_zc_time, cumulative_yolox_time);
+
+        // zero copy latency: camera node to yolox
+        std_msgs::msg::Float32 zc_latency_msg;
+        zc_latency_msg.data = image_zc_time;
+        // yolox callback latency: yolox callback
+        std_msgs::msg::Float32 yolox_latency_msg;
+        yolox_latency_msg.data = yolox_time;
+        // zero copy latency: camera node to yolox
+        std_msgs::msg::Float32 cum_yolox_latency_msg;
+        cum_yolox_latency_msg.data = cumulative_yolox_time;
 
         // Publish latency information
         auto end_noninf = std::chrono::system_clock::now();
@@ -287,6 +338,8 @@ namespace yolox_ros_cpp
         std_msgs::msg::Float32 latency_msg;
         latency_msg.data = static_cast<float>(elapsed_noninf.count());
         this->pub_latency_->publish(latency_msg);
+        this->pub_zc_latency_->publish(zc_latency_msg);
+        this->pub_cum_yolox_latency_->publish(cum_yolox_latency_msg);
     }
 
     vision_msgs::msg::Detection2DArray YoloXNode::objects_to_detection2d(const std::vector<yolox_cpp::Object> &objects, const std_msgs::msg::Header &header)
