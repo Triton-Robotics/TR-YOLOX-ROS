@@ -23,7 +23,6 @@
 #include "yolox_cpp/utils.hpp"
 #include "yolox_param/yolox_param.hpp"
 
-#include "tr_messages/msg/detections.hpp"
 #include "shm/SharedImage.h"
 
 namespace yolox_ros_cpp{
@@ -66,8 +65,13 @@ namespace yolox_ros_cpp{
         int last_frame_; // Track last processed frame
 
         rclcpp::Publisher<bboxes_ex_msgs::msg::BoundingBoxes>::SharedPtr pub_bboxes_;
-        rclcpp::Publisher<tr_messages::msg::Detections>::SharedPtr pub_detection2d_;
-        rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr pub_latency_;
+        rclcpp::Publisher<vision_msgs::msg::Detection2DArray>::SharedPtr pub_detection2d_;
+        
+
+        // profiler latency publishers
+        rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr pub_zc_latency_;
+        rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr pub_latency_; // YOLOx callback latency
+        rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr pub_cum_yolox_latency_; // camera grab -> end yolox callback
         
         image_transport::Publisher pub_image_;
     };
