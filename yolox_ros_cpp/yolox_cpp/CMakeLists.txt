@@ -52,18 +52,20 @@ if(YOLOX_USE_OPENVINO)
 endif()
 
 if(YOLOX_USE_TENSORRT)
-  find_package(CUDA REQUIRED)
-  enable_language(CUDA) 
-  if (NOT CUDA_TOOLKIT_ROOT_DIR)
-    set(CUDA_TOOLKIT_ROOT_DIR /usr/local/cuda)
+  find_package(CUDAToolkit REQUIRED)
+  
+  if (NOT CUDAToolkit_ROOT)
+    set(CUDAToolkit_ROOT /usr/local/cuda)
   endif()
+  
   find_path(TENSORRT_INCLUDE_DIR NvInfer.h
-    HINTS ${TENSORRT_ROOT} ${CUDA_TOOLKIT_ROOT_DIR}
+    HINTS ${TENSORRT_ROOT} ${CUDAToolkit_ROOT}
     PATH_SUFFIXES include)
+    
   set(ENABLE_TENSORRT ON)
   set(TARGET_SRC ${TARGET_SRC} src/yolox_tensorrt.cpp src/cuda_utils.cu)
   set(TARGET_LIBS ${TARGET_LIBS} nvinfer nvinfer_plugin)
-  set(TARGET_DPENDENCIES ${TARGET_DPENDENCIES} CUDA)
+  set(TARGET_DPENDENCIES ${TARGET_DPENDENCIES} CUDAToolkit)
 endif()
 
 # tflite
