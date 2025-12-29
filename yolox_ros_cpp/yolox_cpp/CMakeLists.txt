@@ -8,7 +8,9 @@ if(NOT CMAKE_CXX_STANDARD)
 endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
+  add_compile_options(-Wall -Wextra)
+  # Apply -Wpedantic only to C/C++ files, not CUDA
+  add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-Wpedantic>)
 endif()
 
 set(CMAKE_BUILD_TYPE Release)
