@@ -15,8 +15,6 @@
 #include <std_msgs/msg/header.hpp>
 #include <vision_msgs/msg/detection2_d_array.hpp>
 
-#include "bboxes_ex_msgs/msg/bounding_box.hpp"
-#include "bboxes_ex_msgs/msg/bounding_boxes.hpp"
 #include "std_msgs/msg/float32.hpp"
 
 #include "yolox_cpp/utils.hpp"
@@ -35,7 +33,6 @@ class YoloXNode : public rclcpp::Node {
     void onInit();
     void colorImageCallback(const sensor_msgs::msg::Image::ConstSharedPtr &);
     void sharedMemoryImageCallback(); // New callback for shared memory polling
-    static bboxes_ex_msgs::msg::BoundingBoxes
     objects_to_bboxes(const cv::Mat &, const std::vector<yolox_cpp::Object> &,
                       const std_msgs::msg::Header &);
     static vision_msgs::msg::Detection2DArray
@@ -44,9 +41,7 @@ class YoloXNode : public rclcpp::Node {
     static Detection2DArray
     objects_to_shm_detection2darray(const std::vector<yolox_cpp::Object> &,
                                     const long &);
-
-        protected :
-
+    protected:
         std::shared_ptr<yolox_parameters::ParamListener> param_listener_;
     yolox_parameters::Params params_;
 
