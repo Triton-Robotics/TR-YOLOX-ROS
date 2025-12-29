@@ -22,7 +22,10 @@ find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
 
 option(YOLOX_USE_OPENVINO    "Use OpenVINO"  OFF)
-option(YOLOX_USE_TENSORRT    "Use TensorRT"  OFF)
+# ----------
+# !!! DEFAULT TO TENSORRT ON !!!
+# ----------
+option(YOLOX_USE_TENSORRT    "Use TensorRT"  ON)
 option(YOLOX_USE_ONNXRUNTIME "Use ONNXRuntime"  OFF)
 option(YOLOX_USE_TFLITE      "Use tflite"  OFF)
 option(JETSON                "Use Jetson"  ON)
