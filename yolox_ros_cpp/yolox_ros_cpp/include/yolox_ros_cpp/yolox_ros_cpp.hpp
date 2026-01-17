@@ -1,7 +1,7 @@
 #pragma once
 
-#include <cmath>
 #include <chrono>
+#include <cmath>
 
 #if __has_include(<cv_bridge/cv_bridge.hpp>)
 #include <cv_bridge/cv_bridge.hpp>
@@ -19,60 +19,69 @@
 #include "bboxes_ex_msgs/msg/bounding_boxes.hpp"
 #include "std_msgs/msg/float32.hpp"
 
-#include "yolox_cpp/yolox.hpp"
 #include "yolox_cpp/utils.hpp"
+#include "yolox_cpp/yolox.hpp"
 #include "yolox_param/yolox_param.hpp"
 
 #include "shm/SharedImage.h"
 
-namespace yolox_ros_cpp{
-    class YoloXNode : public rclcpp::Node
-    {
-    public:
-        YoloXNode(const rclcpp::NodeOptions &);
-    private:
-        void onInit();
-        void colorImageCallback(const sensor_msgs::msg::Image::ConstSharedPtr &);
-        void sharedMemoryImageCallback(); // New callback for shared memory polling
-        static bboxes_ex_msgs::msg::BoundingBoxes objects_to_bboxes(const cv::Mat &, const std::vector<yolox_cpp::Object> &, const std_msgs::msg::Header &);
-        static vision_msgs::msg::Detection2DArray objects_to_detection2d(const std::vector<yolox_cpp::Object> &, const std_msgs::msg::Header &);
-    protected:
-        std::shared_ptr<yolox_parameters::ParamListener> param_listener_;
-        yolox_parameters::Params params_;
-    private:
-        bool init;
+namespace yolox_ros_cpp {
+class YoloXNode : public rclcpp::Node {
+  public:
+    YoloXNode(const rclcpp::NodeOptions &);
 
-        cudaStream_t stream_;
+  private:
+    void onInit();
+    void colorImageCallback(const sensor_msgs::msg::Image::ConstSharedPtr &);
+    void sharedMemoryImageCallback(); // New callback for shared memory polling
+    static bboxes_ex_msgs::msg::BoundingBoxes
+    objects_to_bboxes(const cv::Mat &, const std::vector<yolox_cpp::Object> &,
+                      const std_msgs::msg::Header &);
+    static vision_msgs::msg::Detection2DArray
+    objects_to_detection2d(const std::vector<yolox_cpp::Object> &,
+                           const std_msgs::msg::Header &);
 
-        size_t input_bytes;
-        size_t output_bytes;
+  protected:
+    std::shared_ptr<yolox_parameters::ParamListener> param_listener_;
+    yolox_parameters::Params params_;
 
-        uchar3* d_image_; 
-        float* d_output_;
+  private:
+    bool init;
 
-        std::unique_ptr<yolox_cpp::AbcYoloX> yolox_;
-        std::vector<std::string> class_names_;
+    cudaStream_t stream_;
 
-        rclcpp::CallbackGroup::SharedPtr callback_group_reentrant_;
-        std::shared_ptr<rclcpp::SubscriptionOptions> sub_options_;
+    size_t input_bytes;
+    size_t output_bytes;
 
-        rclcpp::TimerBase::SharedPtr init_timer_;
-        rclcpp::TimerBase::SharedPtr shm_timer_; // Timer for polling shared memory
-        image_transport::Subscriber sub_image_;
+    uchar3 *d_image_;
+    float *d_output_;
 
-        // Shared memory components
-        std::unique_ptr<SharedImageReader> sharedImageReader_;
-        int last_frame_; // Track last processed frame
+    std::unique_ptr<yolox_cpp::AbcYoloX> yolox_;
+    std::vector<std::string> class_names_;
 
-        rclcpp::Publisher<bboxes_ex_msgs::msg::BoundingBoxes>::SharedPtr pub_bboxes_;
-        rclcpp::Publisher<vision_msgs::msg::Detection2DArray>::SharedPtr pub_detection2d_;
-        
+    rclcpp::CallbackGroup::SharedPtr callback_group_reentrant_;
+    std::shared_ptr<rclcpp::SubscriptionOptions> sub_options_;
 
-        // profiler latency publishers
-        rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr pub_zc_latency_;
-        rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr pub_latency_; // YOLOx callback latency
-        rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr pub_cum_yolox_latency_; // camera grab -> end yolox callback
-        
-        image_transport::Publisher pub_image_;
-    };
-}
+    rclcpp::TimerBase::SharedPtr init_timer_;
+    rclcpp::TimerBase::SharedPtr shm_timer_; // Timer for polling shared memory
+    image_transport::Subscriber sub_image_;
+
+    // Shared memory components
+    std::unique_ptr<SharedImageReader> sharedImageReader_;
+    int last_frame_; // Track last processed frame
+
+    rclcpp::Publisher<bboxes_ex_msgs::msg::BoundingBoxes>::SharedPtr
+        pub_bboxes_;
+    rclcpp::Publisher<vision_msgs::msg::Detection2DArray>::SharedPtr
+        pub_detection2d_;
+
+    // profiler latency publishers
+    rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr pub_zc_latency_;
+    rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr
+        pub_latency_; // YOLOx callback latency
+    rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr
+        pub_cum_yolox_latency_; // camera grab -> end yolox callback
+
+    image_transport::Publisher pub_image_;
+};
+} // namespace yolox_ros_cpp
