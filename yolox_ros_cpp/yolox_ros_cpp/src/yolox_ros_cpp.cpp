@@ -132,6 +132,9 @@ void YoloXNode::onInit() {
         RCLCPP_INFO(this->get_logger(),
                     "Using shared memory input - SharedImageReader initialized "
                     "for camera_image");
+
+        this->sharedDetWriter_ = std::make_unique<SharedDetWithImgWriter>(
+            "yolox_det_with_img", 1200, 1920, 3, "CV_8U");
     } else {
         // Use ROS topic subscription
         rclcpp::QoS qos_profile(5); // Queue depth of 5 for multithreading
@@ -296,12 +299,20 @@ void YoloXNode::sharedMemoryImageCallback() {
 
     vision_msgs::msg::Detection2DArray detections =
         objects_to_detection2d(objects, header);
+
+    curr_ts_.tv_nsec = this->now().nanoseconds();
+    Detection2DArray shared_detections =
+        objects_to_shm_detection2darray(objects, curr_ts_.tv_nsec);
+
     if (!detections.detections.empty()) {
         // tr_messages::msg::Detections detections_msg;
         // detections_msg.detection_info.detections = detections.detections;
         // this->pub_detection2d_->publish(detections_msg);
 
         this->pub_detection2d_->publish(detections);
+        // rewrite the image that was received from cam node
+        this->sharedDetWriter_->writeDetWithImg(image, shared_detections,
+                                                timeGrabbed);
 
         // RCLCPP_INFO(this->get_logger(), "Published %zu detections from shared
         // memory frame %d",
@@ -366,6 +377,27 @@ YoloXNode::objects_to_detection2d(const std::vector<yolox_cpp::Object> &objects,
         detection2d.detections.emplace_back(det);
     }
     return detection2d;
+}
+
+Detection2DArray YoloxNode::objects_to_shm_detection2darray(
+    const std::vector<yolox_cpp::Object> &objects, const long &ns) {
+    Detection2DArray detections_array;
+    detections_array.timestamp = ns;
+
+    unsigned int num_detections = 0;
+    for (const auto &obj : objects) {
+        Detection2D det;
+        det.bbox.center_x = obj.rect.x + obj.rect.width / 2;
+        det.bbox.center_y = obj.rect.y + obj.rect.height / 2;
+        det.bbox.size_x = obj.rect.width;
+        det.bbox.size_y = obj.rect.height;
+
+        det.score = obj.prob;
+        detections_array->detections[num_detections] = det;
+        num_detections++;
+    }
+    detections_array.num_detections = num_detections;
+    return detections_array;
 }
 } // namespace yolox_ros_cpp
 

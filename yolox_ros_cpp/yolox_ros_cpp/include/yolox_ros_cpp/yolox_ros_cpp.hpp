@@ -23,6 +23,7 @@
 #include "yolox_cpp/yolox.hpp"
 #include "yolox_param/yolox_param.hpp"
 
+#include "shm/SharedDetWithImg.h"
 #include "shm/SharedImage.h"
 
 namespace yolox_ros_cpp {
@@ -40,9 +41,13 @@ class YoloXNode : public rclcpp::Node {
     static vision_msgs::msg::Detection2DArray
     objects_to_detection2d(const std::vector<yolox_cpp::Object> &,
                            const std_msgs::msg::Header &);
+    static Detection2DArray
+    objects_to_shm_detection2darray(const std::vector<yolox_cpp::Object> &,
+                                    const long &)
 
-  protected:
-    std::shared_ptr<yolox_parameters::ParamListener> param_listener_;
+        protected :
+
+        std::shared_ptr<yolox_parameters::ParamListener> param_listener_;
     yolox_parameters::Params params_;
 
   private:
@@ -69,6 +74,8 @@ class YoloXNode : public rclcpp::Node {
     // Shared memory components
     std::unique_ptr<SharedImageReader> sharedImageReader_;
     int last_frame_; // Track last processed frame
+    std::unique_ptr<SharedDetWithImgWriter> sharedDetWriter_;
+    struct timespec curr_ts_;
 
     rclcpp::Publisher<bboxes_ex_msgs::msg::BoundingBoxes>::SharedPtr
         pub_bboxes_;
