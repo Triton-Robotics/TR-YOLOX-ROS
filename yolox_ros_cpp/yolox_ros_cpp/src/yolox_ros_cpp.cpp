@@ -133,7 +133,7 @@ void YoloXNode::onInit() {
                     "Using shared memory input - SharedImageReader initialized "
                     "for camera_image");
 
-        this->sharedDetWriter_ = std::make_unique<SharedDetWithImgWriter>(
+        this->sharedDetWriter_ = std::make_unique<SharedDetWithImageWriter>(
             "yolox_det_with_img", 1200, 1920, 3, "CV_8U");
     } else {
         // Use ROS topic subscription
@@ -379,7 +379,7 @@ YoloXNode::objects_to_detection2d(const std::vector<yolox_cpp::Object> &objects,
     return detection2d;
 }
 
-Detection2DArray YoloxNode::objects_to_shm_detection2darray(
+Detection2DArray YoloXNode::objects_to_shm_detection2darray(
     const std::vector<yolox_cpp::Object> &objects, const long &ns) {
     Detection2DArray detections_array;
     detections_array.timestamp = ns;
@@ -393,7 +393,7 @@ Detection2DArray YoloxNode::objects_to_shm_detection2darray(
         det.bbox.size_y = obj.rect.height;
 
         det.score = obj.prob;
-        detections_array->detections[num_detections] = det;
+        detections_array.detections[num_detections] = det;
         num_detections++;
     }
     detections_array.num_detections = num_detections;

@@ -43,7 +43,7 @@ class YoloXNode : public rclcpp::Node {
                            const std_msgs::msg::Header &);
     static Detection2DArray
     objects_to_shm_detection2darray(const std::vector<yolox_cpp::Object> &,
-                                    const long &)
+                                    const long &);
 
         protected :
 
@@ -74,7 +74,7 @@ class YoloXNode : public rclcpp::Node {
     // Shared memory components
     std::unique_ptr<SharedImageReader> sharedImageReader_;
     int last_frame_; // Track last processed frame
-    std::unique_ptr<SharedDetWithImgWriter> sharedDetWriter_;
+    std::unique_ptr<SharedDetWithImageWriter> sharedDetWriter_;
     struct timespec curr_ts_;
 
     rclcpp::Publisher<bboxes_ex_msgs::msg::BoundingBoxes>::SharedPtr
