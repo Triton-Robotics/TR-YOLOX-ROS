@@ -23,7 +23,7 @@ option(YOLOX_USE_OPENVINO    "Use OpenVINO"  OFF)
 option(YOLOX_USE_TENSORRT    "Use TensorRT"  OFF)
 option(YOLOX_USE_ONNXRUNTIME "Use ONNXRuntime"  OFF)
 option(YOLOX_USE_TFLITE      "Use tflite"  OFF)
-option(JETSON                "Use Jetson"  OFF)
+option(JETSON                "Use Jetson"  ON)
 
 if(JETSON)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I/usr/include/aarch64-linux-gnu/ -L/usr/lib/aarch64-linux-gnu/")
