@@ -2,6 +2,8 @@
 #define _YOLOX_CPP_CORE_HPP
 
 #include <opencv2/core/types.hpp>
+#include <cuda_runtime_api.h>
+#include <NvInfer.h>
 
 namespace yolox_cpp
 {
