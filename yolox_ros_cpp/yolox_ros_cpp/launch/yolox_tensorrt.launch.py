@@ -15,7 +15,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'model_path',
-            default_value='/home/triton/Documents/cv-dev/TR-Autonomy-2024-2025/src/TR-YOLOX-ROS/weights/tensorrt/modelInt8_clocks.engine',
+            default_value='src/TR-YOLOX-ROS/weights/tensorrt/modelInt8.engine',
             description='yolox model path.'
         ),
         DeclareLaunchArgument(
@@ -77,7 +77,7 @@ def generate_launch_description():
             'publish_resized_image',
             default_value='false',
             description='use BoundingBoxArray message type.'
-        ),
+        )
     ]
     SetEnvironmentVariable(
             name='RCLCPP_EXECUTOR_THREAD_COUNT',

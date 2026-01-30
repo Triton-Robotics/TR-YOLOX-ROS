@@ -33,13 +33,9 @@ class YoloXNode : public rclcpp::Node {
     void onInit();
     void colorImageCallback(const sensor_msgs::msg::Image::ConstSharedPtr &);
     void sharedMemoryImageCallback(); // New callback for shared memory polling
-    objects_to_bboxes(const cv::Mat &, const std::vector<yolox_cpp::Object> &,
-                      const std_msgs::msg::Header &);
-    static vision_msgs::msg::Detection2DArray
-    objects_to_detection2d(const std::vector<yolox_cpp::Object> &,
+    static vision_msgs::msg::Detection2DArray objects_to_detection2d(const std::vector<yolox_cpp::Object> &,
                            const std_msgs::msg::Header &);
-    static Detection2DArray
-    objects_to_shm_detection2darray(const std::vector<yolox_cpp::Object> &,
+    static Detection2DArray objects_to_shm_detection2darray(const std::vector<yolox_cpp::Object> &,
                                     const long &);
     protected:
         std::shared_ptr<yolox_parameters::ParamListener> param_listener_;
@@ -72,8 +68,6 @@ class YoloXNode : public rclcpp::Node {
     std::unique_ptr<SharedDetWithImageWriter> sharedDetWriter_;
     struct timespec curr_ts_;
 
-    rclcpp::Publisher<bboxes_ex_msgs::msg::BoundingBoxes>::SharedPtr
-        pub_bboxes_;
     rclcpp::Publisher<vision_msgs::msg::Detection2DArray>::SharedPtr
         pub_detection2d_;
 

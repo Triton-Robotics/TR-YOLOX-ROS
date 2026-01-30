@@ -225,7 +225,7 @@ namespace yolox_cpp
 
         void decode_outputs(const float *prob, const std::vector<GridAndStride> &grid_strides,
                             std::vector<Object> &objects, const float bbox_conf_thresh,
-                            const float scale, const int img_w, const int img_h)
+                            const float scale_w, const float scale_h, const int img_w, const int img_h)
         {
 
             std::vector<Object> proposals;
@@ -251,10 +251,10 @@ namespace yolox_cpp
                 objects[i] = proposals[picked[i]];
 
                 // adjust offset to original unpadded
-                float x0 = objects[i].rect.x / scale;
-                float y0 = objects[i].rect.y / scale;
-                float x1 = (objects[i].rect.x + objects[i].rect.width) / scale;
-                float y1 = (objects[i].rect.y + objects[i].rect.height) / scale;
+                float x0 = objects[i].rect.x / scale_w;
+                float y0 = objects[i].rect.y / scale_h;
+                float x1 = (objects[i].rect.x + objects[i].rect.width) / scale_w;
+                float y1 = (objects[i].rect.y + objects[i].rect.height) / scale_h;
 
                 // clip
                 x0 = std::max(std::min(x0, max_x), 0.f);

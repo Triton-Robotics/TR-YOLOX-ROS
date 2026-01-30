@@ -2,7 +2,7 @@ yolox_parameters:
   imshow_isshow:
     type: bool
     description: "Enable or disable imshow."
-    default_value: false
+    default_value: true
   model_path:
     type: string
     description: "Path to the model file."
@@ -86,10 +86,6 @@ yolox_parameters:
     type: string
     description: "Publish bounding box topic name."
     default_value: "yolox/bounding_boxes"
-  use_bbox_ex_msgs:
-    type: bool
-    description: "Enable or disable bbox_ex_msgs. If true, disable vision_msgs::Detection2DArray."
-    default_value: false
   publish_resized_image:
     type: bool
     description: "Enable or disable resized image."
@@ -97,4 +93,4 @@ yolox_parameters:
   use_shared_memory:
     type: bool
     description: "Use shared memory for image input instead of ROS topic subscription. When true, reads from shared memory; when false, uses ROS image transport."
-    default_value: false
+    default_value: true

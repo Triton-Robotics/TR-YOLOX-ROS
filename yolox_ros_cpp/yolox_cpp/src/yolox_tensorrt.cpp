@@ -123,15 +123,13 @@ namespace yolox_cpp
         t1 = std::chrono::high_resolution_clock::now();
         elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
 
-        const float scale = std::min(
-            static_cast<float>(this->input_w_) / frame.cols,
-            static_cast<float>(this->input_h_) / frame.rows
-        );
+        float scale_w = static_cast<float>(this->input_w_) / frame.cols;
+        float scale_h = static_cast<float>(this->input_h_) / frame.rows;
 
         std::vector<Object> objects;
         t0 = std::chrono::high_resolution_clock::now();
         decode_outputs(output_blob_.data(), this->grid_strides_, objects,
-                    this->bbox_conf_thresh_, scale, frame.cols, frame.rows);
+                    this->bbox_conf_thresh_, scale_w, scale_h, frame.cols, frame.rows);
         t1 = std::chrono::high_resolution_clock::now();
         elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
 
