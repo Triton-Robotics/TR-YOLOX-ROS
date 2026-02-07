@@ -15,7 +15,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'model_path',
-            default_value='src/TR-YOLOX-ROS/weights/tensorrt/modelInt8.engine',
+            default_value='src/TR-YOLOX-ROS/weights/tensorrt/armor_tiny.trt',
             description='yolox model path.'
         ),
         DeclareLaunchArgument(
