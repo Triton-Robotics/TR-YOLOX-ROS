@@ -21,7 +21,7 @@
 #include "yolox_cpp/yolox.hpp"
 #include "yolox_param/yolox_param.hpp"
 
-#include "shm/SharedDetWithImg.h"
+#include "shm/SharedDetWithImage.h"
 #include "shm/SharedImage.h"
 
 namespace yolox_ros_cpp {

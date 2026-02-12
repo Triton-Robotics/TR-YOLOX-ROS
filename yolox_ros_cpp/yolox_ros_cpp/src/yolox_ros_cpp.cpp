@@ -134,7 +134,7 @@ void YoloXNode::onInit() {
                     "for camera_image");
 
         this->sharedDetWriter_ = std::make_unique<SharedDetWithImageWriter>(
-            "yolox_det_with_img", 1200, 1920, 3, "CV_8U");
+            "yolox_det_with_image", 1200, 1920, 3, "CV_8U");
     } else {
         // Use ROS topic subscription
         rclcpp::QoS qos_profile(5); // Queue depth of 5 for multithreading
@@ -311,8 +311,8 @@ void YoloXNode::sharedMemoryImageCallback() {
 
         this->pub_detection2d_->publish(detections);
         // rewrite the image that was received from cam node
-        this->sharedDetWriter_->writeDetWithImg(image, shared_detections,
-                                                timeGrabbed);
+        this->sharedDetWriter_->writeDetWithImage(image, shared_detections,
+                                                  timeGrabbed);
 
         // RCLCPP_INFO(this->get_logger(), "Published %zu detections from shared
         // memory frame %d",
