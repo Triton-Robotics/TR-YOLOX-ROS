@@ -45,12 +45,12 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'conf',
-            default_value='0.7',
+            default_value='0.85',
             description='yolox confidence threshold.'
         ),
         DeclareLaunchArgument(
             'nms',
-            default_value='0.45',
+            default_value='0.6',
             description='yolox nms threshold'
         ),
         DeclareLaunchArgument(

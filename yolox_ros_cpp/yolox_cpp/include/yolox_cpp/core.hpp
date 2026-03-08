@@ -185,6 +185,16 @@ namespace yolox_cpp
             return inter.area();
         }
 
+        float union_area(const Object &a, const Object &b)
+        {
+            return a.rect.area() + b.rect.area() - intersection_area(a, b);
+        }
+
+        float iou(const Object &a, const Object &b)
+        {
+            return intersection_area(a, b) / union_area(a, b);
+        }
+
         void nms_sorted_bboxes(const std::vector<Object> &faceobjects, std::vector<int> &picked, const float nms_threshold)
         {
             picked.clear();
@@ -223,51 +233,91 @@ namespace yolox_cpp
             }
         }
 
-        void decode_outputs(const float *prob, const std::vector<GridAndStride> &grid_strides,
-                            std::vector<Object> &objects, const float bbox_conf_thresh,
-                            const float scale_w, const float scale_h, const int img_w, const int img_h)
+        void remove_nested_boxes(std::vector<Object> &objects, float ios_threshold = 0.9f)
         {
+            std::vector<bool> keep(objects.size(), true);
 
-            std::vector<Object> proposals;
-            generate_yolox_proposals(grid_strides, prob, bbox_conf_thresh, proposals);
-
-            std::sort(
-                proposals.begin(), proposals.end(),
-                [](const Object &a, const Object &b)
-                {
-                    return a.prob > b.prob; // descent
-                });
-
-            std::vector<int> picked;
-            nms_sorted_bboxes(proposals, picked, nms_thresh_);
-
-            int count = picked.size();
-            objects.resize(count);
-            const float max_x = static_cast<float>(img_w - 1);
-            const float max_y = static_cast<float>(img_h - 1);
-
-            for (int i = 0; i < count; ++i)
+            for (size_t i = 0; i < objects.size(); ++i)
             {
-                objects[i] = proposals[picked[i]];
+                if (!keep[i]) continue;
 
-                // adjust offset to original unpadded
-                float x0 = objects[i].rect.x / scale_w;
-                float y0 = objects[i].rect.y / scale_h;
-                float x1 = (objects[i].rect.x + objects[i].rect.width) / scale_w;
-                float y1 = (objects[i].rect.y + objects[i].rect.height) / scale_h;
+                for (size_t j = i + 1; j < objects.size(); ++j)
+                {
+                    if (!keep[j]) continue;
 
-                // clip
-                x0 = std::max(std::min(x0, max_x), 0.f);
-                y0 = std::max(std::min(y0, max_y), 0.f);
-                x1 = std::max(std::min(x1, max_x), 0.f);
-                y1 = std::max(std::min(y1, max_y), 0.f);
+                    // Identify bigger and smaller box
+                    size_t big_idx = (objects[i].rect.area() >= objects[j].rect.area()) ? i : j;
+                    size_t small_idx = (objects[i].rect.area() >= objects[j].rect.area()) ? j : i;
 
-                objects[i].rect.x = x0;
-                objects[i].rect.y = y0;
-                objects[i].rect.width = x1 - x0;
-                objects[i].rect.height = y1 - y0;
+                    // Compute Intersection over Small
+                    float inter_area = (objects[big_idx].rect & objects[small_idx].rect).area();
+                    float ios = inter_area / objects[small_idx].rect.area();
+
+                    // Remove smaller box if mostly inside bigger box
+                    if (ios > ios_threshold)
+                        keep[small_idx] = false;
+                }
             }
+
+            // Filter objects
+            std::vector<Object> filtered;
+            for (size_t i = 0; i < objects.size(); ++i)
+                if (keep[i])
+                    filtered.push_back(objects[i]);
+
+            objects = filtered;
         }
+
+    void decode_outputs(const float *prob, const std::vector<GridAndStride> &grid_strides,
+                    std::vector<Object> &objects, const float bbox_conf_thresh,
+                    const float scale_w, const float scale_h, const int img_w, const int img_h,
+                    float ios_threshold = 0.9f)
+    {
+        // 1. Generate raw proposals
+        std::vector<Object> proposals;
+        generate_yolox_proposals(grid_strides, prob, bbox_conf_thresh, proposals);
+
+        // 2. Sort by confidence descending
+        std::sort(proposals.begin(), proposals.end(),
+                [](const Object &a, const Object &b) { return a.prob > b.prob; });
+
+        // 3. Remove nested small boxes using IoS
+        remove_nested_boxes(proposals, ios_threshold);
+
+        // 4. Apply your existing NMS for overlapping boxes (IoU)
+        std::vector<int> picked;
+        nms_sorted_bboxes(proposals, picked, nms_thresh_); // uses IoU internally
+
+        // 5. Filter objects
+        std::vector<Object> filtered;
+        for (int idx : picked)
+            filtered.push_back(proposals[idx]);
+
+        // 6. Adjust coordinates to original image
+        const float max_x = static_cast<float>(img_w - 1);
+        const float max_y = static_cast<float>(img_h - 1);
+        objects.resize(filtered.size());
+
+        for (size_t i = 0; i < filtered.size(); ++i)
+        {
+            objects[i] = filtered[i];
+
+            float x0 = objects[i].rect.x / scale_w;
+            float y0 = objects[i].rect.y / scale_h;
+            float x1 = (objects[i].rect.x + objects[i].rect.width) / scale_w;
+            float y1 = (objects[i].rect.y + objects[i].rect.height) / scale_h;
+
+            x0 = std::max(std::min(x0, max_x), 0.f);
+            y0 = std::max(std::min(y0, max_y), 0.f);
+            x1 = std::max(std::min(x1, max_x), 0.f);
+            y1 = std::max(std::min(y1, max_y), 0.f);
+
+            objects[i].rect.x = x0;
+            objects[i].rect.y = y0;
+            objects[i].rect.width = x1 - x0;
+            objects[i].rect.height = y1 - y0;
+        }
+    }
     };
 }
 #endif
