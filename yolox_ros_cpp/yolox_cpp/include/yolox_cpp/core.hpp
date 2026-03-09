@@ -273,27 +273,21 @@ namespace yolox_cpp
                     const float scale_w, const float scale_h, const int img_w, const int img_h,
                     float ios_threshold = 0.9f)
     {
-        // 1. Generate raw proposals
         std::vector<Object> proposals;
         generate_yolox_proposals(grid_strides, prob, bbox_conf_thresh, proposals);
 
-        // 2. Sort by confidence descending
         std::sort(proposals.begin(), proposals.end(),
                 [](const Object &a, const Object &b) { return a.prob > b.prob; });
 
-        // 3. Remove nested small boxes using IoS
         remove_nested_boxes(proposals, ios_threshold);
 
-        // 4. Apply your existing NMS for overlapping boxes (IoU)
         std::vector<int> picked;
-        nms_sorted_bboxes(proposals, picked, nms_thresh_); // uses IoU internally
+        nms_sorted_bboxes(proposals, picked, nms_thresh_); 
 
-        // 5. Filter objects
         std::vector<Object> filtered;
         for (int idx : picked)
             filtered.push_back(proposals[idx]);
 
-        // 6. Adjust coordinates to original image
         const float max_x = static_cast<float>(img_w - 1);
         const float max_y = static_cast<float>(img_h - 1);
         objects.resize(filtered.size());
