@@ -121,6 +121,7 @@ this->sub_image_ = image_transport::create_subscription(
 
     auto now = std::chrono::system_clock::now();
     auto objects = this->yolox_->inference(img->image);  // Use img->image
+    RCLCPP_INFO(this->get_logger(), "number of objects detected: %zu", objects.size());
     auto end = std::chrono::system_clock::now();
 
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - now);
