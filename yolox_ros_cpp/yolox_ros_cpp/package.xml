@@ -22,6 +22,7 @@
     <depend>yolox_cpp</depend>
     <depend>yolox_param</depend>
     <depend>tr_messages</depend>
+    <depend>shm</depend>
 
     <exec_depend>usb_cam</exec_depend>
 

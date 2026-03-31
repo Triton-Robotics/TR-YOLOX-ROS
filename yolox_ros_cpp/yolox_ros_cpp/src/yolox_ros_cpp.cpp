@@ -94,12 +94,14 @@ namespace yolox_ros_cpp
 
         rclcpp::QoS qos_profile(1);  // Queue depth of 1
         qos_profile.reliability(rclcpp::ReliabilityPolicy::BestEffort);
-this->sub_image_ = image_transport::create_subscription(
+        this->sub_image_ = image_transport::create_subscription(
             this, this->params_.src_image_topic_name,
             std::bind(&YoloXNode::colorImageCallback, this, std::placeholders::_1),
             "raw",
             qos_profile.get_rmw_qos_profile());
 
+        this->sharedDetWriter_ = std::make_unique<SharedDetWithImageWriter>(
+            "yolox_det_with_image", 1200, 1920, 3, "CV_8U");
 
         if (this->params_.use_bbox_ex_msgs) {
             this->pub_bboxes_ = this->create_publisher<bboxes_ex_msgs::msg::BoundingBoxes>(
@@ -120,6 +122,9 @@ this->sub_image_ = image_transport::create_subscription(
 {
     auto now_noninf = std::chrono::system_clock::now();
     auto img = cv_bridge::toCvShare(ptr, "bgr8");
+
+    rclcpp::Time msg_time(img->header.stamp);
+    long timeGrabbed = msg_time.nanoseconds();  // nanoseconds since epoch
 
     auto now = std::chrono::system_clock::now();
     auto objects = this->yolox_->inference(img->image);  // Use img->image
@@ -146,6 +151,12 @@ this->sub_image_ = image_transport::create_subscription(
             return;
         }
         auto boxes = objects_to_bboxes(img->image, objects, img->header);  // Fix here
+
+        curr_ts_.tv_nsec = this->now().nanoseconds();
+        Detection2DArray shared_detections = objects_to_shm_detection2darray(objects, curr_ts_.tv_nsec);
+        this->sharedDetWriter_->writeDetWithImg(img->image, shared_detections,
+                                                  timeGrabbed);
+
         this->pub_bboxes_->publish(boxes);
     }
     else
@@ -214,6 +225,27 @@ this->sub_image_ = image_transport::create_subscription(
             detection2d.detections.emplace_back(det);
         }
         return detection2d;
+    }
+
+    Detection2DArray objects_to_shm_detection2darray(
+        const std::vector<yolox_cpp::Object> &objects, const long &ns) {
+        Detection2DArray detections_array;
+        detections_array.timestamp = ns;
+
+        unsigned int num_detections = 0;
+        for (const auto &obj : objects) {
+            Detection2D det;
+            det.bbox.center_x = obj.rect.x + obj.rect.width / 2;
+            det.bbox.center_y = obj.rect.y + obj.rect.height / 2;
+            det.bbox.size_x = obj.rect.width;
+            det.bbox.size_y = obj.rect.height;
+
+            det.score = obj.prob;
+            detections_array.detections[num_detections] = det;
+            num_detections++;
+        }
+        detections_array.num_detections = num_detections;
+        return detections_array;
     }
 }
 

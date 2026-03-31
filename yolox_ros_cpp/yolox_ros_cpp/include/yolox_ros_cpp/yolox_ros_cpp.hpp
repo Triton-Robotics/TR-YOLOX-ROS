@@ -24,6 +24,8 @@
 
 #include "tr_messages/msg/det_with_img.hpp"
 
+#include "shm/SharedDetWithImg.h"
+
 namespace yolox_ros_cpp{
     class YoloXNode : public rclcpp::Node
     {
@@ -35,7 +37,8 @@ namespace yolox_ros_cpp{
 
         static bboxes_ex_msgs::msg::BoundingBoxes objects_to_bboxes(const cv::Mat &, const std::vector<yolox_cpp::Object> &, const std_msgs::msg::Header &);
         static vision_msgs::msg::Detection2DArray objects_to_detection2d(const std::vector<yolox_cpp::Object> &, const std_msgs::msg::Header &);
-
+        static Detection2DArray objects_to_shm_detection2darray(const std::vector<yolox_cpp::Object> &,
+                                const long &);
     protected:
         std::shared_ptr<yolox_parameters::ParamListener> param_listener_;
         yolox_parameters::Params params_;
@@ -45,6 +48,10 @@ namespace yolox_ros_cpp{
 
         rclcpp::TimerBase::SharedPtr init_timer_;
         image_transport::Subscriber sub_image_;
+
+        struct timespec curr_ts_;
+
+        std::unique_ptr<SharedDetWithImageWriter> sharedDetWriter_;
 
         rclcpp::Publisher<bboxes_ex_msgs::msg::BoundingBoxes>::SharedPtr pub_bboxes_;
         rclcpp::Publisher<tr_messages::msg::DetWithImg>::SharedPtr pub_detection2d_;

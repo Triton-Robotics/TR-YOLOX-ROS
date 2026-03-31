@@ -105,13 +105,11 @@ namespace yolox_cpp
         // inference
         this->doInference(input_blob_.data(), output_blob_.data());
 
-        
         // postprocess
         const float scale = std::min(
             static_cast<float>(this->input_w_) / static_cast<float>(frame.cols),
             static_cast<float>(this->input_h_) / static_cast<float>(frame.rows)
         );
-
         std::vector<Object> objects;
         decode_outputs(
             output_blob_.data(), this->grid_strides_, objects,
