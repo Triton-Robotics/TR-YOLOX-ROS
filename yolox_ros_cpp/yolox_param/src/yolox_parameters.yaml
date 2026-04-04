@@ -98,3 +98,7 @@ yolox_parameters:
     type: bool
     description: "Use shared memory for image input instead of ROS topic subscription. When true, reads from shared memory; when false, uses ROS image transport."
     default_value: true
+  publish_to_ros:
+    type: bool
+    description: "Enable or disable publishing to ROS topics. When true, publishes detection results and images to ROS topics; when false, publishes only to zero-copy shared memory."
+    default_value: false

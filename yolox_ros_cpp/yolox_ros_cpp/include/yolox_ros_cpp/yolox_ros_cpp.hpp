@@ -33,7 +33,7 @@ class YoloXNode : public rclcpp::Node {
 
   private:
     void onInit();
-    void colorImageCallback(const sensor_msgs::msg::Image::ConstSharedPtr &);
+    // void colorImageCallback(const sensor_msgs::msg::Image::ConstSharedPtr &); Deprecated
     void sharedMemoryImageCallback(); // New callback for shared memory polling
     static vision_msgs::msg::Detection2DArray objects_to_detection2d(const std::vector<yolox_cpp::Object> &,
                            const std_msgs::msg::Header &);

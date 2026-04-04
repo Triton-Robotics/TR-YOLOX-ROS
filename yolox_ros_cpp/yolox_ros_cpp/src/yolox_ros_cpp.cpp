@@ -107,108 +107,21 @@ void YoloXNode::onInit() {
             image_transport::create_publisher(this, this->params_.publish_image_topic_name);
     }
 
-    // Choose input method based on parameter
-    if (this->params_.use_shared_memory) {
-        // Initialize SharedImageReader for camera_image shared memory
-        this->sharedImageReader_ =
-            std::make_unique<SharedImageReader>("camera_image", 1200, 1920, 3, "CV_8U");
-        this->last_frame_ = -1; // Initialize to -1 to process first frame
+    // Initialize SharedImageReader for camera_image shared memory
+    this->sharedImageReader_ =
+        std::make_unique<SharedImageReader>("camera_image", 1200, 1920, 3, "CV_8U");
+    this->last_frame_ = -1; // Initialize to -1 to process first frame
 
-        // Create timer for polling shared memory
-        using namespace std::chrono_literals;
-        this->shm_timer_ =
-            this->create_wall_timer(0.1ms, std::bind(&YoloXNode::sharedMemoryImageCallback, this));
+    // Create timer for polling shared memory
+    using namespace std::chrono_literals;
+    this->shm_timer_ =
+        this->create_wall_timer(0.1ms, std::bind(&YoloXNode::sharedMemoryImageCallback, this));
 
-        RCLCPP_INFO(this->get_logger(), "Using shared memory input - SharedImageReader initialized "
-                                        "for camera_image");
+    RCLCPP_INFO(this->get_logger(), "Using shared memory input - SharedImageReader initialized "
+                                    "for camera_image");
 
-        this->sharedDetWriter_ = std::make_unique<SharedDetWithImageWriter>("yolox_det_with_image",
-                                                                            1200, 1920, 3, "CV_8U");
-    } else {
-        // Use ROS topic subscription
-        rclcpp::QoS qos_profile(5); // Queue depth of 5 for multithreading
-        qos_profile.reliability(rclcpp::ReliabilityPolicy::BestEffort);
-        qos_profile.durability(rclcpp::DurabilityPolicy::Volatile);
-        qos_profile.history(rclcpp::HistoryPolicy::KeepLast);
-        this->sub_image_ = image_transport::create_subscription(
-            this, this->params_.src_image_topic_name,
-            std::bind(&YoloXNode::colorImageCallback, this, std::placeholders::_1), "raw",
-            qos_profile.get_rmw_qos_profile(), *this->sub_options_);
-
-        RCLCPP_INFO(this->get_logger(), "Using ROS topic input - subscribed to %s",
-                    this->params_.src_image_topic_name.c_str());
-    }
-}
-
-void YoloXNode::colorImageCallback(const sensor_msgs::msg::Image::ConstSharedPtr &ptr) {
-
-    rclcpp::Time callback_time = this->get_clock()->now();
-    rclcpp::Time header_stamp_time(ptr->header.stamp);
-    rclcpp::Duration yolox_ipc_latency = callback_time - header_stamp_time;
-
-    // Uncomment to print ros pubsub latency for images
-    // RCLCPP_INFO(this->get_logger(), "Ms %0.5f",
-    // yolox_ipc_latency.nanoseconds() / 1000000.0F);
-
-    auto now_noninf = std::chrono::system_clock::now();
-    auto img = cv_bridge::toCvShare(ptr, "bgr8");
-    auto now = std::chrono::system_clock::now();
-    // Initialization
-    if (this->init) {
-        this->input_bytes = sizeof(uchar3) * img->image.cols * img->image.rows;
-        cudaMallocManaged(reinterpret_cast<void **>(&this->d_image_), this->input_bytes,
-                          cudaMemAttachHost);
-        this->output_bytes = sizeof(float) * 416 * 416 * 3;
-        cudaMallocManaged(reinterpret_cast<void **>(&this->d_output_), this->output_bytes,
-                          cudaMemAttachHost);
-        this->init = false;
-    }
-    //
-    auto copy_start = std::chrono::high_resolution_clock::now();
-    std::memcpy(this->d_image_, img->image.data, this->input_bytes);
-
-    auto copy_end = std::chrono::high_resolution_clock::now();
-    auto copy_time =
-        std::chrono::duration_cast<std::chrono::microseconds>(copy_end - copy_start).count();
-
-    auto objects =
-        this->yolox_->inference(img->image, this->d_image_, this->d_output_, this->stream_);
-
-    RCLCPP_INFO(this->get_logger(), "Objects detected '%zu'", objects.size());
-
-    auto end = std::chrono::system_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - now);
-
-    if (this->params_.imshow_isshow) {
-        yolox_cpp::utils::draw_objects(img->image, objects, this->class_names_);
-        cv::imshow("yolox", img->image);
-        if (cv::waitKey(1) == 27) {
-            rclcpp::shutdown();
-        }
-    }
-
-    if (!this->pub_detection2d_) {
-        RCLCPP_ERROR(this->get_logger(), "pub_detection2d_ is nullptr");
-        return;
-    }
-    vision_msgs::msg::Detection2DArray detections = objects_to_detection2d(objects, img->header);
-    if (!detections.detections.empty()) {
-        tr_messages::msg::DetWithImg detwithimg;
-        detwithimg.image = *ptr;  // Copy unavoidable due to const shared
-        detwithimg.detection_info.detections = detections.detections;
-        this->pub_detection2d_->publish(detwithimg);
-    } 
-    else {
-        RCLCPP_INFO(this->get_logger(), "no detections so not publishing");
-    }
-
-    auto end_noninf = std::chrono::system_clock::now();
-    auto elapsed_noninf =
-        std::chrono::duration_cast<std::chrono::microseconds>(end_noninf - now_noninf);
-
-    std_msgs::msg::Float32 latency_msg;
-    latency_msg.data = static_cast<float>(elapsed_noninf.count());
-    this->pub_latency_->publish(latency_msg);
+    this->sharedDetWriter_ = std::make_unique<SharedDetWithImageWriter>("yolox_det_with_image",
+                                                                        1200, 1920, 3, "CV_8U");
 }
 
 void YoloXNode::sharedMemoryImageCallback() {

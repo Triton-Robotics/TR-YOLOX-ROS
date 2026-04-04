@@ -77,7 +77,12 @@ def generate_launch_description():
             'publish_resized_image',
             default_value='false',
             description='use BoundingBoxArray message type.'
-        )
+        ),
+        DeclareLaunchArgument(
+            'publish_to_ros',
+            default_value='false',
+            description='publish to ros topic or to zero copy ONLY.'
+        ),
     ]
     SetEnvironmentVariable(
             name='RCLCPP_EXECUTOR_THREAD_COUNT',
