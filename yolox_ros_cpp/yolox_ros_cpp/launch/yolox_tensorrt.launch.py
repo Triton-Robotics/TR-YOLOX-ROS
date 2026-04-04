@@ -107,7 +107,8 @@ def generate_launch_description():
                     'src_image_topic_name': LaunchConfiguration('src_image_topic_name'),
                     'publish_image_topic_name': LaunchConfiguration('publish_image_topic_name'),
                     'publish_boundingbox_topic_name': LaunchConfiguration('publish_boundingbox_topic_name'),
-                    'publish_resized_image': LaunchConfiguration('publish_resized_image')
+                    'publish_resized_image': LaunchConfiguration('publish_resized_image'),
+                    'publish_to_ros': LaunchConfiguration('publish_to_ros')
                 }],
             ),
         ],

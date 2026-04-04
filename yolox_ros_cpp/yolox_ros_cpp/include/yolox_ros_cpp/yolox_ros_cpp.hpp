@@ -24,6 +24,8 @@
 #include "shm/SharedDetWithImage.h"
 #include "shm/SharedImage.h"
 
+#include "tr_messages/msg/det_with_img.hpp"
+
 namespace yolox_ros_cpp {
 class YoloXNode : public rclcpp::Node {
   public:
@@ -43,6 +45,8 @@ class YoloXNode : public rclcpp::Node {
 
   private:
     bool init;
+
+    bool publishToRos = false;
 
     cudaStream_t stream_;
 
@@ -68,7 +72,7 @@ class YoloXNode : public rclcpp::Node {
     std::unique_ptr<SharedDetWithImageWriter> sharedDetWriter_;
     struct timespec curr_ts_;
 
-    rclcpp::Publisher<vision_msgs::msg::Detection2DArray>::SharedPtr
+    rclcpp::Publisher<tr_messages::msg::DetWithImg>::SharedPtr
         pub_detection2d_;
 
     // profiler latency publishers

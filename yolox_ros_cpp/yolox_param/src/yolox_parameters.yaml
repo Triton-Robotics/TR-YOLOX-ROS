@@ -86,6 +86,10 @@ yolox_parameters:
     type: string
     description: "Publish bounding box topic name."
     default_value: "yolox/bounding_boxes"
+  publish_detwithimg_topic_name:
+    type: string
+    description: "Publish DetWithImg topic name."
+    default_value: "yolox/det_with_img"
   publish_resized_image:
     type: bool
     description: "Enable or disable resized image."
