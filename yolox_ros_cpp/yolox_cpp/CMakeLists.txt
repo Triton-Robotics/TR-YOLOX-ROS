@@ -17,6 +17,7 @@ set(CMAKE_CUDA_ARCHITECTURES 87)
 project(yolox_cpp CXX CUDA)
 
 find_package(ament_cmake_auto REQUIRED)
+find_package(OpenCV REQUIRED)
 ament_auto_find_build_dependencies()
 
 option(YOLOX_USE_OPENVINO    "Use OpenVINO"  OFF)
@@ -93,11 +94,12 @@ ament_auto_add_library(yolox_cpp SHARED ${TARGET_SRC})
 target_include_directories(yolox_cpp PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
+  ${OpenCV_INCLUDE_DIRS}
 )
 
 ament_target_dependencies(yolox_cpp ${TARGET_DPENDENCIES})
 ament_export_dependencies(${TARGET_DPENDENCIES})
-target_link_libraries(yolox_cpp ${TARGET_LIBS})
+target_link_libraries(yolox_cpp ${TARGET_LIBS} ${OpenCV_LIBS})
 
 if (YOLOX_USE_TFLITE)
   target_include_directories(yolox_cpp PUBLIC ${TFLITE_INCLUDES})
