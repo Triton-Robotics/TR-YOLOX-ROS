@@ -14,7 +14,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'model_path',
-            default_value='/home/triton/Documents/cv-dev/TR-Autonomy-2024-2025/src/TR-YOLOX-ROS/weights/tensorrt/armor_tiny.trt',
+            default_value='/home/kenan/Code/TR/TR-Autonomy/src/TR-YOLOX-ROS/weights/tensorrt/armor_tiny.trt',
             description='yolox model path.'
         ),
         DeclareLaunchArgument(

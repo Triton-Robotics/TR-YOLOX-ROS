@@ -25,7 +25,7 @@ function convert {
         return
     fi
 
-    /usr/src/tensorrt/bin/trtexec \
+    trtexec \
         --onnx=$SCRIPT_DIR/../onnx/$MODEL.onnx \
         --saveEngine=$SCRIPT_DIR/$MODEL.trt \
         --fp16 --verbose

@@ -38,15 +38,14 @@ namespace yolox_cpp
         this->context_ = std::unique_ptr<IExecutionContext>(this->engine_->createExecutionContext());
         assert(this->context_ != nullptr);
 
-        const auto input_name = this->engine_->getIOTensorName(this->inputIndex_);
-        const auto input_dims = this->engine_->getTensorShape(input_name);
+        // TRT 8.4 API: Use getBindingDimensions instead of getTensorShape
+        const auto input_dims = this->engine_->getBindingDimensions(this->inputIndex_);
         this->input_h_ = input_dims.d[2];
         this->input_w_ = input_dims.d[3];
         std::cout << "INPUT_HEIGHT: " << this->input_h_ << std::endl;
         std::cout << "INPUT_WIDTH: " << this->input_w_ << std::endl;
 
-        const auto output_name = this->engine_->getIOTensorName(this->outputIndex_);
-        auto output_dims = this->engine_->getTensorShape(output_name);
+        auto output_dims = this->engine_->getBindingDimensions(this->outputIndex_);
         this->output_size_ = 1;
         for (int j = 0; j < output_dims.nbDims; ++j)
         {
@@ -59,21 +58,22 @@ namespace yolox_cpp
 
         // Pointers to input and output device buffers to pass to engine.
         // Engine requires exactly IEngine::getNbBindings() number of buffers.
-        assert(this->engine_->getNbIOTensors() == 2);
-        // In order to bind the buffers, we need to know the names of the input and output tensors.
-        // Note that indices are guaranteed to be less than IEngine::getNbBindings()
-        assert(this->engine_->getTensorDataType(input_name) == nvinfer1::DataType::kFLOAT);
-        assert(this->engine_->getTensorDataType(output_name) == nvinfer1::DataType::kFLOAT);
+        assert(this->engine_->getNbBindings() == 2);
+        
+        // In order to bind the buffers, we need to know the datatypes of the input and output bindings.
+        assert(this->engine_->getBindingDataType(this->inputIndex_) == nvinfer1::DataType::kFLOAT);
+        assert(this->engine_->getBindingDataType(this->outputIndex_) == nvinfer1::DataType::kFLOAT);
 
         // Create GPU buffers on device
         CHECK(cudaMalloc(&this->inference_buffers_[this->inputIndex_], 3 * this->input_h_ * this->input_w_ * sizeof(float)));
         CHECK(cudaMalloc(&this->inference_buffers_[this->outputIndex_], this->output_size_ * sizeof(float)));
 
-        assert(this->context_->setInputShape(input_name, input_dims));
+        // TRT 8.4 API: Use setBindingDimensions
+        assert(this->context_->setBindingDimensions(this->inputIndex_, input_dims));
         assert(this->context_->allInputDimensionsSpecified());
 
-        assert(this->context_->setInputTensorAddress(input_name, this->inference_buffers_[this->inputIndex_]));
-        assert(this->context_->setOutputTensorAddress(output_name, this->inference_buffers_[this->outputIndex_]));
+        // Note: setInputTensorAddress / setOutputTensorAddress are removed here.
+        // In TRT 8.4, the buffers are passed directly via the inference_buffers_ array in enqueueV2().
 
         // Prepare GridAndStrides
         if (this->p6_)
@@ -132,7 +132,8 @@ namespace yolox_cpp
                 3 * this->input_h_ * this->input_w_ * sizeof(float),
                 cudaMemcpyHostToDevice, stream));
 
-        bool success = context_->executeV2(this->inference_buffers_);
+        // TRT 8.4 API: enqueueV2 processes the bindings asynchronously on the provided stream
+        bool success = context_->enqueueV2(this->inference_buffers_, stream, nullptr);
         if (!success)
             throw std::runtime_error("failed inference");
 
@@ -143,6 +144,7 @@ namespace yolox_cpp
                 this->output_size_ * sizeof(float),
                 cudaMemcpyDeviceToHost, stream));
 
+        // Block host until stream is complete
         CHECK(cudaStreamSynchronize(stream));
 
         // Release stream

@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.8)
 project(yolox_ros_cpp)
 
+include_directories(/home/kenan/.local/opt/TensorRT-8.4.3.1/include) #for NvInfer.h
+#include_directories(/home/kenan/Code/TR/TR-Autonomy/src/tr-utils/src/shm/include/shm)
+link_directories(/home/kenan/.local/opt/TensorRT-8.4.3.1/lib) #for cannot found -lnvinfer
+
+
 if(NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 17)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -13,6 +18,7 @@ endif()
 
 find_package(ament_cmake_auto REQUIRED)
 find_package(tr_messages REQUIRED)
+find_package(shm REQUIRED)
 
 
 ament_auto_find_build_dependencies()
@@ -25,6 +31,7 @@ endif()
 ament_auto_add_library(yolox_ros_cpp SHARED
   src/yolox_ros_cpp.cpp
 )
+
 rclcpp_components_register_node(
   yolox_ros_cpp
   PLUGIN "yolox_ros_cpp::YoloXNode"
@@ -41,4 +48,4 @@ ament_auto_package(
   launch
 )
 
-ament_target_dependencies(yolox_ros_cpp tr_messages)
+ament_target_dependencies(yolox_ros_cpp tr_messages shm)

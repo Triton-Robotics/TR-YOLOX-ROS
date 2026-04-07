@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.8)
 project(yolox_cpp)
 
+include_directories(/home/kenan/.local/opt/TensorRT-8.4.3.1/include) #for NvInfer.h
+link_directories(/home/kenan/.local/opt/TensorRT-8.4.3.1/lib) #for cannot found -lnvinfer
+
 if(NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 17)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
