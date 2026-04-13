@@ -8,6 +8,9 @@ YoloXNode::YoloXNode(const rclcpp::NodeOptions &options) : Node("yolox_ros_cpp",
 }
 
 void YoloXNode::onInit() {
+    this->declare_parameter("debug", false);
+    DebugTR::set_enabled(this->get_parameter("debug").as_bool());
+
     this->init = true;
     this->publishToRos = this->get_parameter("publish_to_ros").as_bool();
     this->d_image_ = nullptr;
@@ -93,6 +96,9 @@ void YoloXNode::onInit() {
     // Create publishers
     this->pub_detection2d_ = this->create_publisher<tr_messages::msg::DetWithImg>(
         this->params_.publish_detwithimg_topic_name, 10);
+    
+    this->pub_dets_image = this->create_publisher<sensor_msgs::msg::Image>(
+        this->params_.publish_dets_image_topic_name, 10);
 
     this->pub_latency_ = this->create_publisher<std_msgs::msg::Float32>("yolox_latency_ms", 10);
 
@@ -208,6 +214,19 @@ void YoloXNode::sharedMemoryImageCallback() {
             detwithimg.detection_info.detections = detections.detections;
             this->pub_detection2d_->publish(detwithimg);
         }
+        DebugTR::run([&]() {
+            sensor_msgs::msg::Image dets_msg;
+            cv::Mat img_copy = image.clone();
+            for (size_t i = 0; i < detections.detections.size(); i++) {
+                const auto &det = detections.detections[i];
+                cv::Rect rect(det.bbox.center.position.x - det.bbox.size_x / 2,
+                         det.bbox.center.position.y - det.bbox.size_y / 2, det.bbox.size_x,
+                         det.bbox.size_y);
+                cv::rectangle(img_copy, rect, cv::Scalar(0, 255, 0), 2);
+                dets_msg = *cv_bridge::CvImage(header, "bgr8", img_copy).toImageMsg();
+            }
+            pub_dets_image->publish(dets_msg);
+        });
         // rewrite the image that was received from cam node
         this->sharedDetWriter_->writeDetWithImage(image, shared_detections, timeGrabbed);
 

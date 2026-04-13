@@ -90,6 +90,10 @@ yolox_parameters:
     type: string
     description: "Publish DetWithImg topic name."
     default_value: "yolox/det_with_img"
+  publish_dets_image_topic_name:
+    type: string
+    description: "Publish detection image topic name."
+    default_value: "yolox/dets_image"
   publish_resized_image:
     type: bool
     description: "Enable or disable resized image."

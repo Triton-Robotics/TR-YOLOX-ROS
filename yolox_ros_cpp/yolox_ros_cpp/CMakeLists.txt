@@ -48,4 +48,4 @@ ament_auto_package(
   launch
 )
 
-ament_target_dependencies(yolox_ros_cpp tr_messages shm cv_bridge)
+ament_target_dependencies(yolox_ros_cpp tr_messages shm cv_bridge tr_debug)

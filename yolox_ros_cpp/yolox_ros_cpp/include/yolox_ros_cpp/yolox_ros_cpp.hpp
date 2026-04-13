@@ -26,6 +26,8 @@
 
 #include "tr_messages/msg/det_with_img.hpp"
 
+#include "tr_debug/debug.hpp"
+
 namespace yolox_ros_cpp {
 class YoloXNode : public rclcpp::Node {
   public:
@@ -74,6 +76,7 @@ class YoloXNode : public rclcpp::Node {
 
     rclcpp::Publisher<tr_messages::msg::DetWithImg>::SharedPtr
         pub_detection2d_;
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr pub_dets_image;
 
     // profiler latency publishers
     rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr pub_zc_latency_;

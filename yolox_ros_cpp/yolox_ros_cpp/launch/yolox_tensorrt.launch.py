@@ -45,7 +45,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'conf',
-            default_value='0.85',
+            default_value='0.75',
             description='yolox confidence threshold.'
         ),
         DeclareLaunchArgument(
@@ -69,6 +69,11 @@ def generate_launch_description():
             description='topic name for publishing image with bounding box drawn'
         ),
         DeclareLaunchArgument(
+            'publish_dets_image_topic_name',
+            default_value='yolox/dets_image',
+            description='topic name for publishing detection image'
+        ),
+        DeclareLaunchArgument(
             'publish_boundingbox_topic_name',
             default_value='/detections',
             description='topic name for publishing bounding box message.'
@@ -83,6 +88,11 @@ def generate_launch_description():
             default_value='false',
             description='publish to ros topic or to zero copy ONLY.'
         ),
+        DeclareLaunchArgument(
+            'debug',
+            default_value='false',
+            description='enable debug mode for yolox_ros_cpp.'
+        )
     ]
     SetEnvironmentVariable(
             name='RCLCPP_EXECUTOR_THREAD_COUNT',
@@ -111,9 +121,11 @@ def generate_launch_description():
                     'imshow_isshow': LaunchConfiguration('imshow_isshow'),
                     'src_image_topic_name': LaunchConfiguration('src_image_topic_name'),
                     'publish_image_topic_name': LaunchConfiguration('publish_image_topic_name'),
+                    'publish_dets_image_topic_name': LaunchConfiguration('publish_dets_image_topic_name'),
                     'publish_boundingbox_topic_name': LaunchConfiguration('publish_boundingbox_topic_name'),
                     'publish_resized_image': LaunchConfiguration('publish_resized_image'),
-                    'publish_to_ros': LaunchConfiguration('publish_to_ros')
+                    'publish_to_ros': LaunchConfiguration('publish_to_ros'),
+                    'debug': LaunchConfiguration('debug')
                 }],
             ),
         ],
