@@ -53,7 +53,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'onnxruntime_use_cuda',
-            default_value='true',
+            default_value='false',
             description='onnxruntime use cuda.'
         ),
         DeclareLaunchArgument(
