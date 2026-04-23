@@ -116,6 +116,8 @@ void YoloXNode::colorImageCallback(const sensor_msgs::msg::Image::ConstSharedPtr
 
     if (this->params_.imshow_isshow) {
         yolox_cpp::utils::draw_objects(img->image, objects, this->class_names_);
+        cv::namedWindow("yolox", cv::WINDOW_NORMAL);
+        cv::resizeWindow("yolox", 960, 540);
         cv::imshow("yolox", img->image);
         if (cv::waitKey(1) == 27) {
             rclcpp::shutdown();

@@ -73,7 +73,7 @@ namespace yolox_cpp
         assert(this->context_->allInputDimensionsSpecified());
 
         assert(this->context_->setInputTensorAddress(input_name, this->inference_buffers_[this->inputIndex_]));
-        assert(this->context_->setOutputTensorAddress(output_name, this->inference_buffers_[this->outputIndex_]));
+        assert(this->context_->setTensorAddress(output_name, this->inference_buffers_[this->outputIndex_]));
 
         // Prepare GridAndStrides
         if (this->p6_)
@@ -132,7 +132,7 @@ namespace yolox_cpp
                 3 * this->input_h_ * this->input_w_ * sizeof(float),
                 cudaMemcpyHostToDevice, stream));
 
-        bool success = context_->executeV2(this->inference_buffers_);
+        bool success = context_->enqueueV3(stream);
         if (!success)
             throw std::runtime_error("failed inference");
 
