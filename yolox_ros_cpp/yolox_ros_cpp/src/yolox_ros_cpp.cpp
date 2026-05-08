@@ -1,4 +1,5 @@
 #include "yolox_ros_cpp/yolox_ros_cpp.hpp"
+#include <cstdio>
 
 namespace yolox_ros_cpp {
 YoloXNode::YoloXNode(const rclcpp::NodeOptions &options) : Node("yolox_ros_cpp", options) {
@@ -96,7 +97,7 @@ void YoloXNode::onInit() {
     // Create publishers
     this->pub_detection2d_ = this->create_publisher<tr_messages::msg::DetWithImg>(
         this->params_.publish_detwithimg_topic_name, 10);
-    
+
     this->pub_dets_image = this->create_publisher<sensor_msgs::msg::Image>(
         this->params_.publish_dets_image_topic_name, 10);
 
@@ -126,8 +127,8 @@ void YoloXNode::onInit() {
     RCLCPP_INFO(this->get_logger(), "Using shared memory input - SharedImageReader initialized "
                                     "for camera_image");
 
-    this->sharedDetWriter_ = std::make_unique<SharedDetWithImageWriter>("yolox_det_with_image",
-                                                                        1200, 1920, 3, "CV_8U");
+    this->sharedDetWriter_ =
+        std::make_unique<SharedDetWithImageWriter>("yolox_det_with_image", 1200, 1920, 3, "CV_8U");
 }
 
 void YoloXNode::sharedMemoryImageCallback() {
@@ -144,6 +145,8 @@ void YoloXNode::sharedMemoryImageCallback() {
     if (!this->sharedImageReader_->readImage(image, current_frame)) {
         return; // No new frame available
     }
+
+    DebugTR::Timer::start_timer("yolox_latency_ms");
 
     long timeGrabbed = this->sharedImageReader_->getTimeStamp();
 
@@ -169,13 +172,30 @@ void YoloXNode::sharedMemoryImageCallback() {
         this->init = false;
     }
 
-    // Copy image data to CUDA memory
-    auto copy_start = std::chrono::high_resolution_clock::now();
+    // Benchmark Copy Time from shared memory to CUDA memory system clock
+
+    std::chrono::system_clock::time_point copyBeginTime = std::chrono::system_clock::now();
     std::memcpy(this->d_image_, image.data, this->input_bytes);
-    auto copy_end = std::chrono::high_resolution_clock::now();
+    std::chrono::system_clock::time_point copyEndTime = std::chrono::system_clock::now();
+    auto copyDuration =
+        std::chrono::duration_cast<std::chrono::milliseconds>(copyEndTime - copyBeginTime).count();
+    RCLCPP_INFO(this->get_logger(), "Copy time from shared memory to CUDA memory: %ld ms",
+                copyDuration);
 
     // Run YOLOX inference
+    // Time YOLOX
+    std::memcpy(this->d_image_, image.data, this->input_bytes);
+
+    // Run YOLOX inference
+    // Time YOLOX
+
+    // Print sanity message
+    RCLCPP_INFO(this->get_logger(), "Received new image from shared memory frame %d, timestamp %ld",
+                current_frame, timeGrabbed);
+
+    DebugTR::Timer::start_timer("yolox_inference_latency_ms");
     auto objects = this->yolox_->inference(image, this->d_image_, this->d_output_, this->stream_);
+    DebugTR::Timer::stop_timer("yolox_inference_latency_ms", true);
 
     RCLCPP_INFO(this->get_logger(), "%zu objects detected", objects.size());
 
@@ -202,15 +222,16 @@ void YoloXNode::sharedMemoryImageCallback() {
     header.stamp = rclcpp::Time(timeGrabbed);
     header.frame_id = "camera_optical_frame";
 
-    vision_msgs::msg::Detection2DArray detections = objects_to_detection2d(objects, header);
-
     curr_ts_.tv_nsec = this->now().nanoseconds();
     Detection2DArray shared_detections = objects_to_shm_detection2darray(objects, curr_ts_.tv_nsec);
+    vision_msgs::msg::Detection2DArray detections;
 
-    if (!detections.detections.empty()) {
+    if (shared_detections.num_detections != 0) {
         if (this->publishToRos) {
+            detections = objects_to_detection2d(objects, header);
             tr_messages::msg::DetWithImg detwithimg;
-            detwithimg.image = *cv_bridge::CvImage(header, "bgr8", image).toImageMsg();  // Copy unavoidable due to const shared
+            detwithimg.image = *cv_bridge::CvImage(header, "bgr8", image)
+                                    .toImageMsg(); // Copy unavoidable due to const shared
             detwithimg.detection_info.detections = detections.detections;
             this->pub_detection2d_->publish(detwithimg);
         }
@@ -220,8 +241,8 @@ void YoloXNode::sharedMemoryImageCallback() {
             for (size_t i = 0; i < detections.detections.size(); i++) {
                 const auto &det = detections.detections[i];
                 cv::Rect rect(det.bbox.center.position.x - det.bbox.size_x / 2,
-                         det.bbox.center.position.y - det.bbox.size_y / 2, det.bbox.size_x,
-                         det.bbox.size_y);
+                              det.bbox.center.position.y - det.bbox.size_y / 2, det.bbox.size_x,
+                              det.bbox.size_y);
                 cv::rectangle(img_copy, rect, cv::Scalar(0, 255, 0), 2);
                 dets_msg = *cv_bridge::CvImage(header, "bgr8", img_copy).toImageMsg();
             }
@@ -266,10 +287,12 @@ void YoloXNode::sharedMemoryImageCallback() {
         std::chrono::duration_cast<std::chrono::microseconds>(end_noninf - now_noninf);
 
     std_msgs::msg::Float32 latency_msg;
-    latency_msg.data = static_cast<float>(elapsed_noninf.count());
+    latency_msg.data =
+        static_cast<float>(elapsed_noninf.count() * 1000.0F); // convert microseconds to nanoseconds
     this->pub_latency_->publish(latency_msg);
     this->pub_zc_latency_->publish(zc_latency_msg);
     this->pub_cum_yolox_latency_->publish(cum_yolox_latency_msg);
+    DebugTR::Timer::stop_timer("yolox_latency_ms", true);
 }
 
 vision_msgs::msg::Detection2DArray

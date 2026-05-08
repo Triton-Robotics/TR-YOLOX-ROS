@@ -15,7 +15,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'model_path',
-            default_value='src/TR-YOLOX-ROS/weights/tensorrt/armor_tiny.trt',
+            default_value='/home/triton/Documents/cv-dev/stable/TR-Autonomy/src/TR-YOLOX-ROS/weights/tensorrt/modelInt8_clocks.engine',
             description='yolox model path.'
         ),
         DeclareLaunchArgument(
@@ -45,7 +45,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'conf',
-            default_value='0.75',
+            default_value='0.7',
             description='yolox confidence threshold.'
         ),
         DeclareLaunchArgument(
