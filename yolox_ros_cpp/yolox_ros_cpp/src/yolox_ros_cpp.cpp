@@ -129,6 +129,8 @@ void YoloXNode::onInit() {
 
     this->sharedDetWriter_ =
         std::make_unique<SharedDetWithImageWriter>("yolox_det_with_image", 1200, 1920, 3, "CV_8U");
+
+    this->tracer_ = std::make_unique<PipelineTracer>("yolox_node");
 }
 
 void YoloXNode::sharedMemoryImageCallback() {
@@ -149,6 +151,9 @@ void YoloXNode::sharedMemoryImageCallback() {
     DebugTR::Timer::start_timer("yolox_latency_ms");
 
     long timeGrabbed = this->sharedImageReader_->getTimeStamp();
+
+    uint64_t pipeline_id = static_cast<uint64_t>(timeGrabbed);
+    this->tracer_->begin(pipeline_id);
 
     // Update last processed frame
     this->last_frame_ = current_frame;
@@ -258,6 +263,8 @@ void YoloXNode::sharedMemoryImageCallback() {
         RCLCPP_DEBUG(this->get_logger(), "No detections from shared memory frame %d",
                      current_frame);
     }
+
+    this->tracer_->end(pipeline_id);
     std::chrono::system_clock::time_point end_yolo = std::chrono::system_clock::now();
     // Convert the current time point to nanoseconds since the epoch
     auto end_ns =

@@ -28,6 +28,8 @@
 
 #include "tr_debug/debug.hpp"
 
+#include "nvtx_pipeline.hpp"
+
 namespace yolox_ros_cpp {
 class YoloXNode : public rclcpp::Node {
   public:
@@ -37,12 +39,13 @@ class YoloXNode : public rclcpp::Node {
     void onInit();
     // void colorImageCallback(const sensor_msgs::msg::Image::ConstSharedPtr &); Deprecated
     void sharedMemoryImageCallback(); // New callback for shared memory polling
-    static vision_msgs::msg::Detection2DArray objects_to_detection2d(const std::vector<yolox_cpp::Object> &,
-                           const std_msgs::msg::Header &);
+    static vision_msgs::msg::Detection2DArray
+    objects_to_detection2d(const std::vector<yolox_cpp::Object> &, const std_msgs::msg::Header &);
     static Detection2DArray objects_to_shm_detection2darray(const std::vector<yolox_cpp::Object> &,
-                                    const long &);
-    protected:
-        std::shared_ptr<yolox_parameters::ParamListener> param_listener_;
+                                                            const long &);
+
+  protected:
+    std::shared_ptr<yolox_parameters::ParamListener> param_listener_;
     yolox_parameters::Params params_;
 
   private:
@@ -74,17 +77,16 @@ class YoloXNode : public rclcpp::Node {
     std::unique_ptr<SharedDetWithImageWriter> sharedDetWriter_;
     struct timespec curr_ts_;
 
-    rclcpp::Publisher<tr_messages::msg::DetWithImg>::SharedPtr
-        pub_detection2d_;
+    rclcpp::Publisher<tr_messages::msg::DetWithImg>::SharedPtr pub_detection2d_;
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr pub_dets_image;
 
     // profiler latency publishers
     rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr pub_zc_latency_;
-    rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr
-        pub_latency_; // YOLOx callback latency
+    rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr pub_latency_; // YOLOx callback latency
     rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr
         pub_cum_yolox_latency_; // camera grab -> end yolox callback
 
     image_transport::Publisher pub_image_;
+    std::unique_ptr<PipelineTracer> tracer_;
 };
 } // namespace yolox_ros_cpp

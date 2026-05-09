@@ -20,6 +20,7 @@ find_package(ament_cmake_auto REQUIRED)
 find_package(tr_messages REQUIRED)
 find_package(shm REQUIRED)
 find_package(cv_bridge REQUIRED)
+find_package(CUDAToolkit REQUIRED)
 
 ament_auto_find_build_dependencies()
 
@@ -30,6 +31,12 @@ endif()
 
 ament_auto_add_library(yolox_ros_cpp SHARED
   src/yolox_ros_cpp.cpp
+)
+
+target_link_libraries(yolox_ros_cpp CUDA::nvToolsExt)
+
+target_include_directories(yolox_ros_cpp PRIVATE
+    /usr/local/cuda/include
 )
 
 rclcpp_components_register_node(
