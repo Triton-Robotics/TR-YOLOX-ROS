@@ -14,6 +14,7 @@
 #include <sensor_msgs/msg/image.hpp>
 #include <std_msgs/msg/header.hpp>
 #include <vision_msgs/msg/detection2_d_array.hpp>
+#include <nvtx3/nvToolsExt.h>
 
 #include "std_msgs/msg/float32.hpp"
 
@@ -27,8 +28,6 @@
 #include "tr_messages/msg/det_with_img.hpp"
 
 #include "tr_debug/debug.hpp"
-
-#include "nvtx_pipeline.hpp"
 
 namespace yolox_ros_cpp {
 class YoloXNode : public rclcpp::Node {
@@ -87,6 +86,5 @@ class YoloXNode : public rclcpp::Node {
         pub_cum_yolox_latency_; // camera grab -> end yolox callback
 
     image_transport::Publisher pub_image_;
-    std::unique_ptr<PipelineTracer> tracer_;
 };
 } // namespace yolox_ros_cpp
