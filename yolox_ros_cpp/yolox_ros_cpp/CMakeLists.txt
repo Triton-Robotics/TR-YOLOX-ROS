@@ -33,10 +33,9 @@ ament_auto_add_library(yolox_ros_cpp SHARED
   src/yolox_ros_cpp.cpp
 )
 
-target_link_libraries(yolox_ros_cpp CUDA::nvToolsExt)
 
 target_include_directories(yolox_ros_cpp PRIVATE
-    /usr/local/cuda/include
+    /home/triton/Downloads/NVTX-3.5.0/c/include  # NVTX 3.5.0
 )
 
 rclcpp_components_register_node(

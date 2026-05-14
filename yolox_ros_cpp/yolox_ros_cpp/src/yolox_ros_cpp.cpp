@@ -144,7 +144,7 @@ void YoloXNode::sharedMemoryImageCallback() {
 
     // Try to read new image from shared memory
     if (!this->sharedImageReader_->readImage(image, current_frame)) {
-        nvtxMarkA("frame unavailable");
+        nvtx3::mark(nvtx3::payload{current_frame}, nvtx3::message{"frame_unavailable"});
         return; // No new frame available
     }
 
@@ -152,7 +152,11 @@ void YoloXNode::sharedMemoryImageCallback() {
 
     long timeGrabbed = this->sharedImageReader_->getTimeStamp();
 
-    nvtxRangePushA("yolox");
+    std::string range_title = "yolox_shm_callback_" + std::to_string(timeGrabbed);
+    nvtx3::scoped_range yolox_range{
+        nvtx3::message{range_title},
+        nvtx3::payload{timeGrabbed}
+    };
 
     // Update last processed frame
     this->last_frame_ = current_frame;
@@ -167,6 +171,7 @@ void YoloXNode::sharedMemoryImageCallback() {
 
     // Initialization for CUDA memory (same as ROS callback)
     if (this->init) {
+        nvtx3::scoped_range cuda_init_range{"yolox_cuda_init"};
         this->input_bytes = sizeof(uchar3) * image.cols * image.rows;
         cudaMallocManaged(reinterpret_cast<void **>(&this->d_image_), this->input_bytes,
                           cudaMemAttachHost);
@@ -263,7 +268,6 @@ void YoloXNode::sharedMemoryImageCallback() {
                      current_frame);
     }
 
-    nvtxRangePop();
     std::chrono::system_clock::time_point end_yolo = std::chrono::system_clock::now();
     // Convert the current time point to nanoseconds since the epoch
     auto end_ns =
